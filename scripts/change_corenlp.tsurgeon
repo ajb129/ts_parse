@@ -1,0 +1,156 @@
+%---------------------------------
+% pick up SBAR function marking
+%---------------------------------
+/^(.+);C(.+)$/#1\%content#2\%extra=x >> /^(SBAR|SBARQ|S|SINV|SQ)\b/=y !>> (/^(SBAR|SBARQ|S|SINV|SQ)\b/ >> =y)
+
+relabel x /^.*$/\%{content}/
+relabel y /^.*$/={y}-\%{extra}/
+
+
+/^(S|SINV|SQ)-(.+)$/#1\%content#2\%extra=x > /^(SBAR|SBARQ)\b/=y
+
+relabel x /^.*$/\%{content}/
+relabel y /^.*$/={y}-\%{extra}/
+
+
+%---------------------------------
+% pick up S function marking
+%---------------------------------
+/^(.+);X(.+)$/#1\%content#2\%extra=x >> /^(S|SINV|SQ)\b/=y !>> (/^(S|SINV|SQ)\b/ >> =y)
+
+relabel x /^.*$/\%{content}/
+relabel y /^.*$/={y}-\%{extra}/
+
+
+%---------------------------------
+% pick up NP function marking
+%---------------------------------
+/^(.+);(SBJ.*|OB1|OB2|PRD2|TMP|MOD)$/#1\%content#2\%extra=x >> /^(NP|WHNP)\b/=y !>> (/^(NP|WHNP)\b/ >> =y)
+
+relabel x /^.*$/\%{content}/
+relabel y /^.*$/={y}-\%{extra}/
+
+
+/^(NP|WHNP)-(.+)$/#1\%content#2\%extra=x > /^(NP|WHNP|PP|WHPP)\b$/=y !< POS
+
+relabel x /^.*$/\%{content}/
+relabel y /^.*$/={y}-\%{extra}/
+
+
+%---------------------------------
+% pick up ADJP function marking
+%---------------------------------
+/^(.+);(PRD2)$/#1\%content#2\%extra=x > (__ > ADJP=y)
+
+relabel x /^.*$/\%{content}/
+relabel y /^.*$/={y}-\%{extra}/
+
+
+%%% %---------------------------------
+%%% % pick up subordinate clause function marking
+%%% %---------------------------------
+%%% /^(.+);(PRD2)$/#1\%content#2\%extra=x > (__ > VP=y)
+%%% 
+%%% relabel x /^.*$/\%{content}/
+%%% relabel y /^.*$/={y}-\%{extra}/
+%%% 
+%%% 
+%%% VP=x < /^VP\b(-.+)$/#1\%extra=y
+%%% 
+%%% relabel x /^.*$/VP\%{extra}/
+%%% relabel y VP
+%%% 
+%%% 
+%%% VP-PRD2=x >: S=y
+%%% 
+%%% relabel x VP
+%%% relabel y S-PRD2
+
+
+%---------------------------------
+% create logical subject marking
+%---------------------------------
+/^(.+-SBJ)PASS$/#1\%content=x $ (S < (VP < VP=y))
+
+relabel x /^.*$/\%{content}/
+insert (NP-LGS *) >1 y
+
+
+/^(.+-SBJ)PASS$/#1\%content=x $ (VP < VP=y)
+
+relabel x /^.*$/\%{content}/
+insert (NP-LGS *) >1 y
+
+
+%---------------------------------
+% push LGS down through VP structure
+%---------------------------------
+NP-LGS=x < /^\*$/ $ (VP=y !< CC)
+
+move x >1 y
+
+
+%---------------------------------
+% transfer LGS marking to PP
+%---------------------------------
+NP-LGS=x < /^\*$/ $ (PP=y < (IN < by))
+
+relabel y PP-LGS
+delete x
+
+
+%---------------------------------
+% change object to sbject
+%---------------------------------
+/^(.+)-OB1\b(.*)$/#1\%content#2\%extra=x > /-COMP\b/ $ (VP=y << (TO < __ !>> (/^(SBAR|SBARQ|S|SINV|SQ)\b/ >> =y)))
+
+relabel x /^.*$/\%{content}-SBJ\%{extra}/
+
+
+%---------------------------------
+% change COMP
+%---------------------------------
+/^(.+)-COMP\b(.*)$/#1\%content#2\%extra=x >> (/^(SBAR|SBARQ|S|SINV|SQ)\b/=y !<< (/\bOB1\b/ !>> (/^(SBAR|SBARQ|S|SINV|SQ)\b/ >> =y)))
+
+relabel x /^.*$/\%{content}-OB1\%{extra}/
+
+
+/^(.+)-COMP\b(.*)$/#1\%content#2\%extra=x >> (/^(SBAR|SBARQ|S|SINV|SQ)\b/=y !<< (/\b(PRD|PRD2)\b/ !>> (/^(SBAR|SBARQ|S|SINV|SQ)\b/ >> =y)))
+
+relabel x /^.*$/\%{content}-PRD2\%{extra}/
+
+
+%---------------------------------
+% change ADJP
+%---------------------------------
+ADJP=x >> (/^(SBAR|SBARQ|S|SINV|SQ)\b/=y !<< (/PRD|OB1/ !>> (/^(SBAR|SBARQ|S|SINV|SQ)\b/ >> =y))) !>> (/^(NP|WHNP)\b/ >> =y)
+
+relabel x ADJP-PRD2
+
+
+%---------------------------------
+% relocate SORT information
+%---------------------------------
+/^(.+)@(\{TITLE\})$/#1\%content=x > (__ $ (__ < /@\{/)) !< __
+
+relabel x /^.*$/\%{content}/
+
+
+/^(.+)@(\{.+\})$/#1\%content#2\%extra=x >> (/^(NP|WHNP)\b/=y !== /;\{/) !>> (/^(NP|WHNP)\b/ >> =y)
+
+relabel x /^.*$/\%{content}/
+relabel y /^.*$/={y};\%{extra}/
+
+
+/^(NP|WHNP.*)(;\{.+\})$/#1\%content#2\%extra=x > (/^(NP|WHNP)\b/=y !== /;\{/) !< POS
+
+relabel x /^.*$/\%{content}/
+relabel y /^.*$/={y}\%{extra}/
+
+
+/^(.+)@(\{.+\})$/#1\%content=x !< __
+
+relabel x /^.*$/\%{content}/
+
+
+

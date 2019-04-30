@@ -1,0 +1,517 @@
+The ts_parse homepage is: http://www.compling.jp/ajb129/ts_parse.html
+
+This package, which includes wrappers for Stanford CoreNLP annotators
+(https://stanfordnlp.github.io/CoreNLP), primarily serves to
+create normalised parsed trees for feeding Treebank Semantics
+(http://www.compling.jp/ajb129/ts.html).
+
+Input can come from raw text, or from trees annotated following the Penn
+Treebank annotation scheme (https://catalog.ldc.upenn.edu/docs/LDC99T42),
+or from trees annotated following the TSPC annotation scheme
+(http://www.compling.jp/ajb129/tspc.html), or from parsed
+dependencies in the CoNLL-U tabled format of Universal Dependencies
+(https://universaldependencies.org/format.html).
+
+Feedback is extremely welcome. Please open a GitHub Issue,
+or email: ajb129 __AT__ hotmail __DOT__ com
+
+Programs to run are located in the "./bin" directory.
+Run with the "--help" flag to see options.
+
+1   Getting started
+===================
+
+We need a way to get from raw text input data to data that is
+syntactically parsed. One way to do this is to use the on-line parser
+available at:
+
+     http://corenlp.run
+
+In addition to providing a web based interface that we can interact with
+via an internet browser, we can also make submissions to the parser via
+the command line, e.g., using the ‘wget’ command.
+
+The program ‘parse_english_xml_corenlp’ is a wrapper script that
+will take raw text input as part of a pipeline and, through a call of
+‘wget’, send this text input to the ‘http://corenlp.run’ server,
+returning the result as output for the pipeline, as follows (Note:
+Output shown is not the full XML output, but rather the parts that are
+used in postprocessing.):
+
+     $ echo A man travelled to Hirosaki. He smiled. | parse_english_xml_corenlp > example.xml
+     $ cat example.xml
+     <?xml version="1.0" encoding="UTF-8"?>
+     <?xml-stylesheet href="CoreNLP-to-HTML.xsl" type="text/xsl"?>
+     <root>
+       <document>
+         <sentences>
+           <sentence id="1">
+             <tokens>
+               <token id="1">
+                 <word>A</word>
+                 <lemma>a</lemma>
+                 <NER>O</NER>
+               </token>
+               <token id="2">
+                 <word>man</word>
+                 <lemma>man</lemma>
+                 <NER>O</NER>
+               </token>
+               <token id="3">
+                 <word>travelled</word>
+                 <lemma>travel</lemma>
+                 <NER>O</NER>
+               </token>
+               <token id="4">
+                 <word>to</word>
+                 <lemma>to</lemma>
+                 <NER>O</NER>
+               </token>
+               <token id="5">
+                 <word>Hirosaki</word>
+                 <lemma>Hirosaki</lemma>
+                 <NER>CITY</NER>
+               </token>
+               <token id="6">
+                 <word>.</word>
+                 <lemma>.</lemma>
+                 <NER>O</NER>
+               </token>
+             </tokens>
+             <parse>(ROOT (S (NP (DT A) (NN man)) (VP (VBD travelled) (PP (TO to) (NP (NNP Hirosaki)))) (. .))) </parse>
+             <dependencies type="basic-dependencies">
+               <dep type="root">
+                 <governor idx="0">ROOT</governor>
+                 <dependent idx="3">travelled</dependent>
+               </dep>
+               <dep type="det">
+                 <governor idx="2">man</governor>
+                 <dependent idx="1">A</dependent>
+               </dep>
+               <dep type="nsubj">
+                 <governor idx="3">travelled</governor>
+                 <dependent idx="2">man</dependent>
+               </dep>
+               <dep type="case">
+                 <governor idx="5">Hirosaki</governor>
+                 <dependent idx="4">to</dependent>
+               </dep>
+               <dep type="nmod">
+                 <governor idx="3">travelled</governor>
+                 <dependent idx="5">Hirosaki</dependent>
+               </dep>
+               <dep type="punct">
+                 <governor idx="3">travelled</governor>
+                 <dependent idx="6">.</dependent>
+               </dep>
+             </dependencies>
+           </sentence>
+           <sentence id="2">
+             <tokens>
+               <token id="1">
+                 <word>He</word>
+                 <lemma>he</lemma>
+                 <NER>O</NER>
+               </token>
+               <token id="2">
+                 <word>smiled</word>
+                 <lemma>smile</lemma>
+                 <NER>O</NER>
+               </token>
+               <token id="3">
+                 <word>.</word>
+                 <lemma>.</lemma>
+                 <NER>O</NER>
+               </token>
+             </tokens>
+             <parse>(ROOT (S (NP (PRP He)) (VP (VBD smiled)) (. .))) </parse>
+             <dependencies type="basic-dependencies">
+               <dep type="root">
+                 <governor idx="0">ROOT</governor>
+                 <dependent idx="2">smiled</dependent>
+               </dep>
+               <dep type="nsubj">
+                 <governor idx="2">smiled</governor>
+                 <dependent idx="1">He</dependent>
+               </dep>
+               <dep type="punct">
+                 <governor idx="2">smiled</governor>
+                 <dependent idx="3">.</dependent>
+               </dep>
+             </dependencies>
+           </sentence>
+         </sentences>
+       </document>
+     </root>
+
+Such output contains tree encodings that we can easily extract, e.g.,
+as follows:
+
+     $ cat example.xml | grep "<parse>"  | sed 's/^ *<parse>//; s/<\/parse>//'
+     (ROOT (S (NP (DT A) (NN man)) (VP (VBD travelled) (PP (TO to) (NP (NNP Hirosaki)))) (. .)))
+     (ROOT (S (NP (PRP He)) (VP (VBD smiled)) (. .)))
+
+This output can be seen with graphical trees, as follows:
+
+                           ROOT
+                            |
+                            S
+                            |
+           +----------------------------------+
+           NP                  VP             .
+           |                   |              |
+        +----+        +-------------+         |
+        DT   NN      VBD            PP        |
+        |    |        |             |         |
+        |    |        |       +-------+       |
+        |    |        |       TO      NP      |
+        |    |        |       |       |       |
+        |    |        |       |      NNP      |
+        |    |        |       |       |       |
+        A   man   travelled   to   Hirosaki   .
+
+              ROOT
+               |
+               S
+               |
+        +-------------+
+        NP     VP     .
+        |      |      |
+       PRP    VBD     |
+        |      |      |
+        He   smiled   .
+
+From the output, we can see that the parsed trees are
+following the annotation scheme of the Penn Treebank
+(https://catalog.ldc.upenn.edu/docs/LDC99T42/), only without any
+functional tags to mark grammatical role. Traces and other zero elements,
+if relevant for the data being parsed, are also absent from returned
+parse results.
+
+A look elsewhere at the overall XML parse information reveals that some
+functional information is available from the gathered dependencies. In
+addition, packaged with word tokens, there is named entity (NER)
+information available. With ‘process_xml_corenlp’ taking the
+‘‐‐penn’ command line switch, such information can be integrated
+into the Penn parse tree, as follows:
+
+     $ cat example.xml | process_xml_corenlp --penn > example.mrg
+     $ cat example.mrg
+     (ROOT (S (NP-SBJ (DT A) (NN man)) (VP (VBD travelled) (PP (TO to) (NP;{CITY} (NNP Hirosaki)))) (. .)))
+     (ROOT (S (NP-SBJ (PRP He)) (VP (VBD smiled)) (. .)))
+
+This modified output can be seen with graphical trees, as follows:
+
+                           ROOT
+                            |
+                            S
+                            |
+             +--------------------------------+
+           NP-SBJ              VP             .
+             |                 |              |
+        +----+        +-------------+         |
+        DT   NN      VBD            PP        |
+        |    |        |             |         |
+        |    |        |       +-------+       |
+        |    |        |       TO  NP;{CITY}   |
+        |    |        |       |       |       |
+        |    |        |       |      NNP      |
+        |    |        |       |       |       |
+        A   man   travelled   to   Hirosaki   .
+
+             ROOT
+              |
+              S
+              |
+        +-------------+
+      NP-SBJ   VP     .
+        |      |      |
+       PRP    VBD     |
+        |      |      |
+        He   smiled   .
+
+We can see that ‘‐SBJ’ is added to the noun phrases of our running
+example. Also, named entity information ‘;{CITY}’ is added to the
+noun phrase that contains Hirosaki.
+
+2   Changing from the Penn Treebank parsing scheme to the TPSC parsing scheme
+=============================================================================
+
+Parsed data following the Penn Treebank annotation scheme is unsuitable
+for being directly passed to the Treebank Semantics command line tools,
+and so must first be transformed. Suitable transformations are performed
+with the ‘penn_to_ts’ conversion tool. We can see the output from
+conversion, as follows:
+
+     $ cat example.mrg | penn_to_ts
+     ( (IP-MAT (NP-SBJ (D A) (N man)) (VBD travelled) (PP (P-ROLE to) (NP;{CITY} (NPR Hirosaki))) (PU .)) (ID 1_ex1556494014;EN))
+     ( (IP-MAT (NP-SBJ (PRO He)) (VBD smiled) (PU .)) (ID 2_ex1556494014;EN))
+
+This output can be seen with graphical trees, as follows:
+
+                                                  |
+                                 +------------------------------+
+                               IP-MAT                           ID
+                                 |                              |
+             +-------------------------------------+            |
+           NP-SBJ      VBD            PP           PU           |
+             |          |             |            |            |
+        +-----+         |        +--------+        |            |
+        D     N         |      P-ROLE NP;{CITY}    |            |
+        |     |         |        |        |        |            |
+        |     |         |        |       NPR       |            |
+        |     |         |        |        |        |            |
+        A    man    travelled    to    Hirosaki    .    1_ex1556494014;EN
+
+                             |
+                 +-------------------+
+               IP-MAT                ID
+                 |                   |
+        +---------------+            |
+      NP-SBJ   VBD      PU           |
+        |       |       |            |
+       PRO      |       |            |
+        |       |       |            |
+        He    smiled    .    2_ex1556494014;EN
+
+There are changes to syntactic labels, elimination of the VP
+projection, and the output now conforms to the CorpusSearch format
+(http://corpussearch.sourceforge.net/CS-manual/YourCorpus.html). That is,
+every tree has a “wrapper”, which is a pair of unlabelled parentheses
+surrounding the tree together with an ID node. By default, the conversion
+creates an ID that is ‘ex’ with a timestamp, and ‘;EN’ to
+indicate that the language of the tree is English. More generally, after
+conversion, trees will conform to the TSPC annotation scheme. This can
+require substantial alterations to how syntactic information is encoded,
+but is essentially always preserving of the information content available
+from the XML parse.
+
+3   More from ‘process_xml_corenlp’
+===================================
+
+In section 1, we saw how a tree could be derived with
+‘process_xml_corenlp’ from the XML parse information produced by the
+Stanford CoreNLP server. This was demonstrated with the ‘‐‐penn’
+command line switch, which led to creation of a tree following the Penn
+annotation scheme. Without the ‘‐‐penn’ command line switch, a
+tree following the TSPC annotation scheme is directly produced (this is
+made possible via an internal call to the workings of ‘penn_to_ts’
+to complete the processing), as follows:
+
+     $ cat example.xml | process_xml_corenlp
+     ( (IP-MAT (NP-SBJ (D A) (N man)) (VBD travelled) (PP (P-ROLE to) (NP;{CITY} (NPR Hirosaki))) (PU .)) (ID 1_ex1556497753;EN))
+     ( (IP-MAT (NP-SBJ (PRO He)) (VBD smiled) (PU .)) (ID 2_ex1556497753;EN))
+
+An ‘‐‐id’ command line switch can be added, together with a
+character string argument, to determine the basename of created ID tags,
+as the following demonstrates:
+
+     $ cat example.xml | process_xml_corenlp --id example > example.psd
+     $ cat example.psd
+     ( (IP-MAT (NP-SBJ (D A) (N man)) (VBD travelled) (PP (P-ROLE to) (NP;{CITY} (NPR Hirosaki))) (PU .)) (ID 1_example;EN))
+     ( (IP-MAT (NP-SBJ (PRO He)) (VBD smiled) (PU .)) (ID 2_example;EN))
+
+A ‘‐‐lemma’ command line switch can be added to return processed
+trees with lemmas replacing words, as follows:
+
+     $ cat example.xml | process_xml_corenlp --lemma
+     ( (IP-MAT (NP-SBJ (D a) (N man)) (VBD travel) (PP (P-ROLE to) (NP;{CITY} (NPR Hirosaki))) (PU .)) (ID 1_ex1556494101;EN))
+     ( (IP-MAT (NP-SBJ (PRO he)) (VBD smile) (PU .)) (ID 2_ex1556494101;EN))
+
+4   Normalisation
+=================
+
+Parsing produces a language-specific syntactic analysis of the source
+text. With normalisation the goal is to preserve the information encoded
+in syntactic structures but express that information with a reduced number
+of language neutral structures and categories. With normalisation, we
+reach a syntactic analysis that is suitable for sending on to the Treebank
+Semantics command line tools (http://www.compling.jp/ajb129/ts.html)
+for reaching a meaning representation analysis.
+
+4.1   Normalising trees following the TSPC annotation scheme for Treebank Semantics
+-----------------------------------------------------------------------------------
+
+We have so far seen how to reach parsed trees presented with the TSPC
+annotation scheme. To reach normalised trees, we can further process
+such trees with ‘parse_modify’. The following demonstrates reaching
+normalised trees for ‘example.psd’ from section 3:
+
+     $ cat example.psd | parse_modify > example.norm
+     $ cat example.norm
+     ( (IP-MAT (ACT past) (PP (ROLE ARG0) (NP (N man))) (VB travelled) (PP (ROLE to) (NP (SORT CITY) (NPR Hirosaki)))) (ID 1_example;EN))
+     ( (IP-MAT (ACT past) (PP (ROLE ARG0) (NP (PRO He))) (VB smiled)) (ID 2_example;EN))
+
+The returned content of ‘example.norm’ can be seen with graphical
+trees, as follows:
+
+                                                    |
+                                   +--------------------------------+
+                                 IP-MAT                             ID
+                                   |                                |
+         +---------------------------------------+                  |
+        ACT        PP           VB               PP                 |
+         |         |            |                |                  |
+         |      +------+        |       +-----------+               |
+         |     ROLE    NP       |      ROLE         NP              |
+         |      |      |        |       |           |               |
+         |      |      |        |       |     +--------+            |
+         |      |      N        |       |    SORT     NPR           |
+         |      |      |        |       |     |        |            |
+        past   ARG0   man   travelled   to   CITY   Hirosaki   1_example;EN
+
+                                |
+                      +------------------+
+                    IP-MAT               ID
+                      |                  |
+         +-------------------+           |
+        ACT        PP        VB          |
+         |         |         |           |
+         |      +-----+      |           |
+         |     ROLE   NP     |           |
+         |      |     |      |           |
+         |      |    PRO     |           |
+         |      |     |      |           |
+        past   ARG0   He   smiled   2_example;EN
+
+We can see that normalisation serves to regularise structure and reduce
+the inventory of tag labels. This includes redistributing information from
+basic grammatical categories into offset elements. For example, ‘NP-SBJ’
+tags are changed into ‘NP’ tags which are placed under a ‘PP’ projection
+that contains ‘(ROLE ARG0)’ to retain the contribution of ‘-SBJ’. As a
+consequence, all arguments become ‘PP’ projections with role information,
+so, e.g., with ‘(PP (ROLE to) (NP (SORT CITY) (NPR Hirosaki)))’ there
+is no structural change, but the ‘P’ part-of-speech was changed to ‘ROLE’,
+and a ‘SORT’ node was created to carry the ‘CITY’ information offset from
+the source ‘NP;{CITY}’ node.
+
+Also note that ‘VBD’ (past tense verb) is changed with normalisation to
+‘VB’. The otherwise lost tense information is retained with the offset ‘(ACT
+past)’ at the clause level. Because ‘(ACT past)’ has a set scope contribution
+(that is, below all arguments and modifiers, and immediately above the
+verb), it is of no consequence where in the clause it is placed.
+
+4.2   Normalising Universal Dependencies for Treebank Semantics
+---------------------------------------------------------------
+
+Section 4.1 gave a way to normalise trees that follow the TSPC parsing
+scheme. Of course any scheme encoding syntactic information might be
+normalised. In this section we consider normalising annotation that
+follows the Universal Dependencies parsing scheme.
+
+First we need to access parsed data following the Universal
+Dependencies parsing scheme. We can do this by, e.g., again calling
+on the Stanford CoreNLP (http://corenlp.run) service, only with
+‘parse_english_ud_corenlp’, as follows (the ‘‐‐lemma’
+command line switch is here added so that lemmas are included --- the
+third column):
+
+     $ echo A man travelled to Hirosaki. He smiled. | parse_english_ud_corenlp --lemma > example.conllu
+     $ cat example.conllu
+     1       A         a        _       DT      _       2       det     _       _
+     2       man       man      _       NN      _       3       nsubj   _       _
+     3       travelled travel   _       VBD     _       0       root    _       _
+     4       to        to       _       TO      _       5       case    _       _
+     5       Hirosaki  Hirosaki _       NNP     _       3       nmod    _       _
+     6       .         .        _       .       _       3       punct   _       _
+
+     1       He        he       _       PRP     _       2       nsubj   _       _
+     2       smiled    smile    _       VBD     _       0       root    _       _
+     3       .         .        _       .       _       2       punct   _       _
+
+This gives the syntactic parse in CoNLL-U tabled format (see:
+https://universaldependencies.org/format.html). From this tabled format
+we can create a parse tree and then suitably modify the tree to realise
+a normalised Treebank Semantics form.
+
+Basic conversion to a tree is accomplished with ‘conllu_to_tree’
+when given the ‘‐‐raw’ command line switch, as follows:
+
+     $ cat example.conllu | conllu_to_tree --raw
+     ( (root (nsubj (det (D A)) (N man)) (VBD travelled) (nmod (case (TO to)) (NPR Hirosaki)) (punct (PU .))) (ID 1_ex1556429068))
+     ( (root (nsubj (PRO He)) (VBD smiled) (punct (PU .))) (ID 2_ex1556429068))
+
+This output can be seen with graphical trees, as follows:
+
+                                           |
+                             +-------------------------+
+                            root                       ID
+                             |                         |
+            +---------------------------------+        |
+          nsubj      VBD           nmod     punct      |
+            |         |             |         |        |
+        +----+        |       +-------+       |        |
+       det   N        |      case    NPR      PU       |
+        |    |        |       |       |       |        |
+        D    |        |       TO      |       |        |
+        |    |        |       |       |       |        |
+        A   man   travelled   to   Hirosaki   .   1_ex1556429068
+
+                        |
+               +---------------+
+              root             ID
+               |               |
+        +-------------+        |
+      nsubj   VBD   punct      |
+        |      |      |        |
+       PRO     |      PU       |
+        |      |      |        |
+        He   smiled   .   2_ex1556429068
+
+With no command line switch, ‘conllu_to_tree’ both converts to
+the basic tree and then postprocesses the tree to create a normalised
+Treebank Semantics tree, as follows:
+
+     $ cat example.conllu | conllu_to_tree
+     ( (IP-MAT (PP (ROLE ARG0) (NP (D A) (N man))) (ACT past) (VB travelled) (PP (ROLE nmod:to) (NP (NPR Hirosaki)))) (ID 1_ex1556428346))
+     ( (IP-MAT (PP (ROLE ARG0) (NP (PRO He))) (ACT past) (VB smiled)) (ID 2_ex1556428346))
+
+This output can be seen with graphical trees, as follows:
+
+                                                       |
+                                       +------------------------------+
+                                     IP-MAT                           ID
+                                       |                              |
+              +--------------------------------------+                |
+              PP         ACT        VB               PP               |
+              |           |         |                |                |
+         +--------+       |         |          +---------+            |
+        ROLE      NP      |         |         ROLE       NP           |
+         |        |       |         |          |         |            |
+         |     +----+     |         |          |         |            |
+         |     D    N     |         |          |        NPR           |
+         |     |    |     |         |          |         |            |
+        ARG0   A   man   past   travelled   nmod:to   Hirosaki   1_ex1556428346
+
+                                 |
+                        +----------------+
+                      IP-MAT             ID
+                        |                |
+            +----------------+           |
+            PP      ACT      VB          |
+            |        |       |           |
+         +-----+     |       |           |
+        ROLE   NP    |       |           |
+         |     |     |       |           |
+         |    PRO    |       |           |
+         |     |     |       |           |
+        ARG0   He   past   smiled   2_ex1556428346
+
+There is also a ‘‐‐lemma’ command line switch for
+‘conllu_to_tree’ to return processed trees with lemmas replacing
+words, as follows:
+
+     $ cat example.conllu | conllu_to_tree --lemma
+     ( (IP-MAT (PP (ROLE ARG0) (NP (D a) (N man))) (ACT past) (VB travel) (PP (ROLE nmod:to) (NP (NPR Hirosaki)))) (ID 1_ex1556435458))
+     ( (IP-MAT (PP (ROLE ARG0) (NP (PRO he))) (ACT past) (VB smile)) (ID 2_ex1556435458))
+
+5   Licence
+===========
+
+All ts_parse sources (c) 2019 Alastair Butler
+
+This work is licensed under the Creative Commons Attribution
+4.0 International License. To view a copy of this license, visit
+http://creativecommons.org/licenses/by/4.0/ or send a letter to
+Creative Commons, PO Box 1866, Mountain View, CA 94042, USA.
+

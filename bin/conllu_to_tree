@@ -1,0 +1,155 @@
+#!/bin/bash
+
+####################
+# help information #
+####################
+
+function help_information () {
+
+cat 1>&2 << END
+NAME
+      conllu_to_tree - convert conllu to bracket format
+
+SYNOPSIS
+      conllu_to_tree [OPTIONS]
+
+DESCRIPTION
+      Filter making conllu input into a bracket format output.
+      The default is to produce normalised tree output that is
+      suitable for feeding the programs of Treebank Semanitcs
+      (http://www.compling.jp/ajb129/ts.html).
+
+      Requires tsurgeon_script from
+      http://www.compling.jp/ajb129/utilities.html to work.
+
+OPTIONS
+END
+
+cat $0 | grep " \# " 1>&2
+
+}
+
+while test $# -gt 0 ; do
+  case "$1" in
+
+      -i|--id)       # must receive an argument giving ID basename
+         BASENAME=$2 ; shift 2 ;;
+
+      -l|--lemma)    # output lemma (default is word) terminal nodes
+         LEMMA=1 ; shift 1 ;;
+
+      --raw)         # do not postprocess
+         RAW=1 ; shift 1 ;;
+
+      *)             # show this help message
+         help_information
+         exit ;;
+
+  esac
+done
+
+######################
+# script starts here #
+######################
+
+if test ! "${BASENAME}"; then
+  BASENAME="ex$(date +%s)"
+fi
+
+gawk -v LEMMA="${LEMMA}" -v BASENAME="${BASENAME}" '
+
+BEGIN { RS = ""; FS = "\n"; }
+
+function change_ud_pos(s, feats, deprel) {
+       if (s == "ADP")   { s = "ROLE" }
+  else if (s == "ADJ")   { s = "ADX" }
+  else if (s == "ADV")   { s = "ADX" }
+  else if (s == "NUM")   { s = "ADX" }
+  else if (s == "AUX")   { s = "AX" }
+  else if (s == "CCONJ") { s = "CONN" }
+  else if (s == "DET")   { s = "D" }
+  else if (s == "NOUN")  { s = "N" }
+  else if (s == "PART" && deprel == "case")   { s = "ROLE" }
+  else if (s == "PART" && deprel == "advmod") { s = "RP" }
+  else if (s == "PART" && deprel == "mark")   { s = "TO" }
+  else if (s == "PRON" && deprel ~ /PronType=Rel/) { s = "WH" }
+  else if (s == "PRON" && deprel ~ /PronType=Int/) { s = "WH" }
+  else if (s == "PRON")  { s = "PRO" }
+  else if (s == "PROPN") { s = "NPR" }
+  else if (s == "PUNCT") { s = "PU" }
+  else if (s == "SCONJ") { s = "CONN" }
+  else if (s == "VERB")  { s = "VB" }
+  return (s)
+}
+
+function change_penn_pos(s) {
+       if (s == "NN")  { s = "N" }
+  else if (s == "NNP") { s = "NPR" }
+  else if (s == "DT")  { s = "D" }
+  else if (s == ".")   { s = "PU" }
+  else if (s == "IN")  { s = "P" }
+  else if (s == "VBZ") { s = "VB" }
+  else if (s == "RB")  { s = "ADX" }
+  else if (s == "PRP") { s = "PRO" }
+  else if (s == "JJ")  { s = "ADX" }
+  else if (s == "WP")  { s = "WH" }
+  return (s)
+}
+
+function show(START,ENDING,PLACE, j) {
+  for (j = START; j <= ENDING; j++) {
+    if (dep[j] == PLACE) {
+      printf(" (%s", link[j])
+      for (i = START; i <= j-1; i++) {
+        if (dep[i] == j) {
+          show(START,j-1,dep[i])
+        }
+      }
+      printf(" (%s %s)", pos[j], word[j])
+      for (l = j+1; l <= ENDING; l++) {
+        if (dep[l] == j) {
+          show(j+1,ENDING,dep[l])
+        }
+       }
+      printf(")")
+    }
+  }
+}
+
+{
+  printf("(")
+  for (i = 1; i <= NF; i++) {
+    if ($i ~ /^[1-9]/) {
+      COUNT++
+      split($i, parts, "\t")
+      if (LEMMA) { word[COUNT] = parts[3] }
+      else { word[COUNT] = parts[2] }
+      if (word[COUNT] == "(") { word[COUNT] = "-LRB-" }
+      else if (word[COUNT] == ")") { word[COUNT] = "-RRB-" }
+      parts[4] == "_" ? pos[COUNT] = change_penn_pos(parts[5]) : pos[COUNT] = change_ud_pos(parts[4], parts[6], parts[8])
+      dep[COUNT] = parts[7]
+      link[COUNT] = parts[8]
+    }
+    else if ($i ~ /^# sent_id =/) {
+      ID = gensub(/^# sent_id = */, "", 1, $i)
+    }
+  }
+  show(1, COUNT, 0)
+  if (ID) {
+    printf(" (ID %s))\n", ID)
+    ID = ""
+  } else {
+    srand()
+    printf(" (ID %s_%s))\n", ++NUM, BASENAME)
+  }
+  COUNT=0
+}
+
+' | \
+if test "${RAW}"; then
+  cat
+else
+  sed "s/'/’/g" | \
+  tsurgeon_script $(dirname $0)/../scripts/conllu.tsurgeon
+fi
+

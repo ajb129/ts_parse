@@ -1,0 +1,416 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+root=x
+
+relabel x IP-MAT
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+punct|expl=x
+
+delete x
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+det=x < D
+
+excise x x
+
+/^det:predet/=x $. D=y
+
+move x >1 y
+
+
+D=x $. NPR=y
+
+move x >1 y
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+xcomp=x < N !< VB|cop !< (mark < TO)
+
+relabel x obj
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+/^compound/=x $. (__=y < (__ !< __))
+
+move x >1 y
+
+
+/^(flat|compound)/=x $, (__=y < (__ !< __))
+
+move x >-1 y
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% English specific
+D=x < Every|every|No|no
+
+relabel x Q
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+nmod|nsubj|dobj|obj < ADX=x
+
+adjoinF (amod @) x
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% construct pred with cop
+cop=y !$ pred $.. (case|N|D=x !$,, (case|N|D $,, =y))
+
+adjoinF (pred @) x
+
+
+pred=x $. !parataxis=y !$. (conj < VB)
+
+move y >-1 x
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+/^(.+):pass(.*)$/`#'1\%start`#'2\%end=x !$ (PP < (ROLE < LGS))
+
+insert (PP (ROLE LGS) (NP (SORT *))) $+ x
+relabel x /^.*$/\%{start}\%{end}/
+
+
+/^(.+):pass(.*)$/`#'1\%start`#'2\%end=x $ (PP < (ROLE < LGS))
+
+relabel x /^.*$/\%{start}\%{end}/
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+/^nsubj/=x
+
+adjoin (PP (ROLE ARG0) (NP@)) x
+
+
+/^csubj/=x
+
+adjoin (PP (ROLE ARG0) (CP-THT (IP-SUB@))) x
+
+
+/^CP-THT/ <1 (IP-SUB=x <1 mark=y)
+
+move y $+ x
+relabel y CONN
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+dobj|obj=x
+
+adjoin (PP (ROLE ARG1) (NP@)) x
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+/^nmod/=x < (case=y << (__=z !< __))
+
+adjoinF (PP @) x
+move y $+ x
+relabel z /^.*$/={x}:={z}/
+relabel x NP
+relabel y ROLE
+
+
+/^obl/=x < (case=y << (__=z !< __))
+
+adjoinF (PP @) x
+move y $+ x
+relabel z /^.*$/={x}:={z}/
+relabel x NP
+relabel y ROLE
+
+
+/^(nmod|obl)/=x < __
+
+adjoinF (PP (ROLE _=y) @) x
+relabel y /^.*$/={x}/
+relabel x NP
+
+
+/^pred/=x < (case=y << (__=z !< __))
+
+adjoinF (PP @) x
+move y $+ x
+relabel z /^.*$/={x}:={z}/
+relabel x NP
+relabel y ROLE
+
+
+/^pred/=x < __
+
+adjoinF (PP (ROLE _=y) @) x
+relabel y /^.*$/={x}/
+relabel x NP
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+/^acl:relcl/=y << (PP=x < (NP < WH)) !<< (/^\*T\*$/ !>> (/^acl:relcl/ >> =y))
+
+insert (PP (ROLE ?e) (NP *T*)) $+ x
+
+
+/^acl:relcl/=y << (PP=x < (NP < (PRO=p < that|That|which|Which))) !<< (/^\*T\*$/ !>> (/^acl:relcl/ >> =y))
+
+insert (PP (ROLE ?e) (NP *T*)) $+ x
+relabel p WH
+
+
+/^acl:relcl/=y !<< (/^\*T\*$/ !>> (/^acl:relcl/ >> =y))
+
+insert (PP (ROLE __link__) (NP *T*)) >1 y
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+/^acl:relcl/=x
+
+adjoin (CP-REL (IP-SUB@)) x
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+/^acl/=x < (mark=y << (__=z !< __))
+
+adjoinF (PP (ACT scon) @) x
+relabel z /^.*$/={x}:={z}/
+move y $+ x
+relabel x IP-CTL2
+excise y y
+
+
+/^acl/=x < __
+
+adjoin (PP (CONN =y) (ACT scon) IP-CTL2@) x
+relabel y /^.*$/={x}/
+
+
+/^advcl/=x < (mark=y << (/(If|if)/=z !< __))
+
+adjoinF (PP (ACT cond) @) x
+relabel z /^.*$/={x}:={z}/
+move y $+ x
+relabel x IP-CTL2
+excise y y
+
+
+/^advcl/=x < (mark=y << (__=z !< __))
+
+adjoinF (PP (ACT scon) @) x
+relabel z /^.*$/={x}:={z}/
+move y $+ x
+relabel x IP-CTL2
+excise y y
+
+
+/^advcl/=x < __
+
+adjoin (PP (ROLE =y) IP-CTL2@) x
+relabel y /^.*$/={x}/
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ccomp=x <1 mark=y
+
+adjoinF (PP (SORT SITUATION) @) x
+move y $+ x
+relabel x IP-CTL2
+relabel y ROLE
+
+
+ccomp=x
+
+adjoin (PP (SORT SITUATION) (ROLE COMP) (IP-CTL2@)) x
+
+
+xcomp=x <1 mark=y
+
+adjoinF (PP (ACT scon) @) x
+move y $+ x
+relabel x IP-CTL2
+relabel y CONN
+
+
+xcomp=x
+
+adjoin (PP (ACT scon) (CONN COMP) (IP-CTL2@)) x
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+amod=x < VB
+
+relabel x IP-CTL2
+
+
+advmod|amod|nummod=x < ADX
+
+insert (ROLE =y) >1 x
+insert (SORT =z) >1 x
+relabel y /^.*$/={x}/
+relabel z /^.*$/={x}/
+relabel x ADXP
+
+
+nummod=x < cc
+
+relabel x conj
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% construct NP with conj
+NP !< NP < conj=x
+
+insert (NP) $+ x
+
+
+NP < (conj=x !< NP)
+
+insert (NP) >-1 x
+
+
+NP < (NP=x $, __=y) < conj
+
+move y >1 x
+
+
+conj < (NP=x $, !cc=y)
+
+move y >1 x
+
+
+NP < conj=x
+
+relabel x CONJP
+
+
+CONJP < cc=x
+
+relabel x CONN
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+/^conj/=x > /^IP\b/
+
+adjoin (PP (ACT scon) (IP-CTL2@)) x
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+/^parataxis/=x > /^IP\b/
+
+adjoin (PP (ACT scon) (CONN =y) (IP-CTL2@)) x
+relabel y /^.*$/={x}/
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+CONJP|PP < (__=x <1 cc=y)
+
+move y $+ x
+excise y y
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ADX=x > /^IP\b/
+
+relabel x VB
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% VBD
+VBD=x
+
+insert (ACT past) $+ x
+relabel x VB
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+cop=x !$ VB << (__=y !< __)
+
+relabel x VB
+relabel y /^.*$/cop:={y}/
+
+
+/^(cop|aux)/=x $ VB=y !$.. /^aux/
+
+move x >1 y
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+NPR=x [ $ PP ]
+
+relabel x N
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% fix P
+/^PP\b/ < /^(P|TO)\b/=x < (ACT < /^(scon|cond)/)
+
+relabel x CONN
+
+
+/^PP\b/ < (/^(P|TO)\b/=x !== ROLE)
+
+relabel x ROLE
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% fix IP-CTL2
+/^IP-CTL2/=x << (ARG0 !>> (/^IP/ >> =x))
+
+relabel x IP-SUB
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+PP < (CONN=x < COMP=z) < (ACT=y < scon)
+
+relabel x ROLE
+delete y
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% appos
+appos=x > /^(NP|NML)\b/
+
+adjoin (PRN NP@) x
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% remove NEG
+NEG=x << (__=y !< __)
+
+relabel x ACT
+relabel y neg
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% remove layers under part-of-speech
+/^(ACT|ADX|CONN|D|MD|N|NPR|PNX|PRO|ROLE|Q|VB|WH)\b/ < (__=x < __)
+
+excise x x
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% merge words
+__=x $ __=y !< __
+
+relabel x /^.*$/={x}_={y}/
+delete y
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% avoid collisions with ROLE information
+/^(IP|NP)\b/=z << (
+  ROLE < (/^(.+)$/`#'1\%name=x !== /^(ARG|DARG)/)
+    !>> (/^(IP|NP)\b/ !< CONJP >> =z)
+    !> (__ >> (/^ADXP\b/ !< CONJP >> =z))
+    ,, (ROLE < /^(.+)$/`#'1\%name >> =z
+         !>> (/^(IP|NP)\b/ !< CONJP >> =z)
+         !> (__ >> (/^ADXP\b/ !< CONJP >> =z))
+       )
+  )
+
+coindex x
+
+
+ROLE < /^(.+)-(\p{Digit}+)$/`#'1\%name`#'2\%index=x
+
+relabel x /^.*$/\%{name}\%{index}/
+
+

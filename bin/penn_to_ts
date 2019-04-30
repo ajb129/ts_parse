@@ -1,0 +1,82 @@
+#!/bin/bash
+
+####################
+# help information #
+####################
+
+function help_information () {
+
+cat 1>&2 << END
+NAME
+      penn_to_ts - convert parsing scheme
+
+SYNOPSIS
+      penn_to_ts [OPTIONS]
+
+DESCRIPTION
+      Reads syntactic parse following Penn Treebank scheme from stdin,
+      returns syntactic parse following the TSPC annotation scheme.
+
+      Requires tsurgeon_script from
+      http://www.compling.jp/ajb129/utilities.html to work.
+
+OPTIONS
+END
+
+cat $0 | grep " \# " 1>&2
+
+}
+
+while test $# -gt 0 ; do
+  case "$1" in
+
+      -i|--id)       # must receive an argument giving ID basename
+         BASENAME=$2 ; shift 2 ;;
+
+      --top)      # return parse with TOP (default is timestamped CorpusSearch format)
+         TOP=1 ; shift ;;
+
+      --extra)    # extra routines to add SBJ
+         EXTRA=1 ; shift ;;
+
+      *)          # show this help message
+         help_information
+         exit ;;
+
+  esac
+done
+
+######################
+# script starts here #
+######################
+
+function stamp () {
+  if test "${TOP}"; then
+    cat
+  else
+    if test ! "${BASENAME}"; then
+      BASENAME="ex$(date +%s)"
+    fi
+    awk -v BASENAME="${BASENAME}" '
+function clean(s) {
+  s = gensub(/^\(ROOT /, "", 1, s)
+  s = gensub(/^\(TOP /, "", 1, s)
+  s = gensub(/\)$/, "", 1, s)
+  return(s)
+}
+/\(ID / { print ; next }
+{ printf("( %s (ID %s_%s;EN))\n", clean($0), ++NUM, BASENAME) }
+'
+  fi
+}
+
+DIR=$(dirname $0)/../scripts
+
+penn_to_ts_tags | \
+if test "${EXTRA}"; then
+  tsurgeon_script ${DIR}/penn_to_ts_extra.tsurgeon ${DIR}/penn_to_ts.tsurgeon
+else
+  tsurgeon_script ${DIR}/penn_to_ts.tsurgeon
+fi | \
+stamp
+

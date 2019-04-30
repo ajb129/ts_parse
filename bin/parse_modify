@@ -1,0 +1,110 @@
+#!/bin/bash
+
+#############################
+# change the following to a path for finding stanford-tregex.jar
+#   Download from: https://nlp.stanford.edu/software/tregex.shtml
+
+TREGEX_LOCATION="$(tregex_location)"
+
+####################
+# help information #
+####################
+
+function help_information () {
+
+cat 1>&2 << END
+NAME
+      parse_modify - process parse trees
+
+SYNOPSIS
+      parse_modify [OPTIONS]
+
+DESCRIPTION
+      Filter to modify tree representations conforming to the TSPC
+      annotation scheme.  Produces normalised tree output that
+      is suitable for feeding the programs of Treebank Semanitcs
+      (http://www.compling.jp/ajb129/ts.html).
+
+OPTIONS
+END
+
+cat $0 | grep " \# " 1>&2
+
+}
+
+while test $# -gt 0 ; do
+  case "$1" in
+
+     --reduced)              # setting for tptp
+      REDUCED=1 ; shift ;;
+
+     --lang|-l)              # specify language, e.g., --lang JP (Japanese), --lang EN (English)
+      LNGUE=$2 ; shift 2 ;;
+
+     *)                      # show this help message
+        help_information
+        exit ;;
+
+  esac
+done
+
+######################
+# script starts here #
+######################
+
+MAIN=$(dirname $0)/../scripts
+
+TEMP=${TMP:-"/tmp"}/output$$.parse
+TSCRIPT=${TMP:-"/tmp"}/output$$.tsurgeon
+
+##################
+# take already created parse
+awk '{ print ; print "(TOP (IP-MAT (VB @split@)))" }' > "${TEMP}"
+
+##################
+# determine language
+if ! test "${LNGUE}"; then
+  if test $(cat "${TEMP}" | sed -n 1p | grep -c ";EN\>") -gt 0; then
+    LNGUE="ENG"
+  elif test $(cat "${TEMP}" | sed -n 1p | grep -c ";JP\>") -gt 0; then
+    LNGUE="JPN"
+  fi
+fi
+
+##################
+# build tsurgeon script
+
+# collect and comment script content
+cat "${MAIN}/modify.tsurgeon" | \
+if test "${REDUCED}"; then
+  cat
+else
+  sed ' s/^%%% START REDUCED/.R/; s/^%%% END REDUCED/.E/ '
+fi | \
+if test "${LNGUE}" = "JPN"; then
+  sed ' s/^%%% START ENG/.R/; s/^%%% END ENG/.E/ '
+else
+  sed ' s/^%%% START JPN/.R/; s/^%%% END JPN/.E/ '
+fi | \
+awk '
+$1 ~ /^\.R/ { remove_all++ ; next }
+
+$1 ~ /^\.E/ { remove_all-- ; next }
+
+remove_all != 0	{ next }
+
+/^%/ { next }
+
+{ print }
+' | m4 > "${TSCRIPT}"
+
+##################
+# run the tsurgeon script
+
+java -mx300m -cp "${TREGEX_LOCATION}" edu.stanford.nlp.trees.tregex.tsurgeon.Tsurgeon -treeFile "${TEMP}" "${TSCRIPT}" -s | \
+awk '/@split@/ { printf("\n") ; next } ; { printf("%s", $0) }'
+
+##################
+# clean up
+rm -f "${TEMP}" "${TSCRIPT}"
+

@@ -1,0 +1,5 @@
+NP=x $. VP !$ /SBJ/
+
+relabel x NP-SBJ
+
+

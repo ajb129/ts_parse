@@ -1,0 +1,61 @@
+#!/bin/bash
+
+ADDRESS="corenlp.run"
+PORT="9000"
+
+# wget --post-data 'The quick brown fox jumped over the lazy dog.' 'http://corenlp.run/?properties={"annotators":"parse,ner","outputFormat":"xml"}' -O -
+
+####################
+# help information #
+####################
+
+function help_information () {
+
+cat 1>&2 << END
+NAME
+      parse_english_xml_corenlp - parse input
+
+SYNOPSIS
+      parse_english_xml_corenlp [OPTIONS]
+
+DESCRIPTION
+      Wrapper script to parse input using
+      https://stanfordnlp.github.io/CoreNLP.
+
+      Produces output in XML format.
+
+OPTIONS
+END
+
+cat $0 | grep " \# " 1>&2
+
+}
+
+while test $# -gt 0 ; do
+  case "$1" in
+
+      -p|--port)       # must receive an argument giving the port (default is: 9000)
+         PORT=$2 ; shift 2 ;;
+
+      -a|--address)    # must receive an argument giving address (default is: corenlp.run)
+         ADDRESS="${2}:${PORT}" ; shift 2 ;;
+
+      *)               # show this help message
+         help_information
+         exit ;;
+
+  esac
+done
+
+######################
+# script starts here #
+######################
+
+TEMP=${TMP:-"/tmp"}/output_in$$
+
+cat > ${TEMP}
+
+wget --post-file=${TEMP} 'http://'"${ADDRESS}"'/?properties={"annotators":"parse,ner","outputFormat":"xml"}' -O - 2>/dev/null
+
+rm ${TEMP}
+

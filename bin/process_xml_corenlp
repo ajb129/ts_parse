@@ -1,0 +1,133 @@
+#!/bin/bash
+
+####################
+# help information #
+####################
+
+function help_information () {
+
+cat 1>&2 << END
+NAME
+      process_xml_corenlp - output integrated tree
+
+SYNOPSIS
+      process_xml_corenlp [OPTIONS]
+
+DESCRIPTION
+      Reads XML syntactic parse produced by Stanford CoreNLP (from
+      annotators: parse,ner), returns a tree that by default follows the
+      TSPC annotation scheme. This adds functional information from the
+      basic dependency analysis, SORT information from the ner analysis,
+      and modifies the Penn tree contained in the CoreNLP syntactic parse.
+
+      Requires select_data, tree_to_table, table_to_tree, and
+      tsurgeon_script from http://www.compling.jp/ajb129/utilities.html
+      to work.
+
+OPTIONS
+END
+
+cat $0 | grep " \# " 1>&2
+
+}
+
+while test $# -gt 0 ; do
+  case "$1" in
+
+      -i|--id)       # must receive an argument giving ID basename
+         BASENAME=$2 ; shift 2 ;;
+
+      -l|--lemma)    # output lemma (default is word) terminal nodes
+         LEMMA=1 ; shift 1 ;;
+
+      --penn)        # output Penn style tree (default is TS style)
+         PENN=1 ; shift 1 ;;
+
+      *)             # show this help message
+         help_information
+         exit ;;
+
+  esac
+done
+
+######################
+# script starts here #
+######################
+
+if test ! "${BASENAME}"; then
+  BASENAME="ex$(date +%s)"
+fi
+
+DIR=$(dirname $0)/../scripts
+
+TEMP1=${TMP:-"/tmp"}/output1$$
+TEMP2=${TMP:-"/tmp"}/output2$$
+TEMP3=${TMP:-"/tmp"}/output3$$
+
+cat | xsltproc ${DIR}/extract_corenlp.xsl - > ${TEMP1}
+
+NUM=$(cat ${TEMP1} | select_data)
+
+for i in $(seq ${NUM}); do
+  cat ${TEMP1} | select_data $i | sed '1,/^-------------------$/d; /^$/d' | tree_to_table > ${TEMP2}
+  cat ${TEMP1} | select_data $i | sed '/^-------------------$/,$d' > ${TEMP3}
+  paste ${TEMP2} ${TEMP3} | awk -v LEMMA=${LEMMA} '
+
+function process_word(word,lemma) {
+  if (LEMMA) { return (lemma) }
+  else { return (word) }
+}
+
+function process_ner (s) {
+       if (s == "O") { s = "" }
+  else if (s)        { s = "@{" s "}" }
+  return (s)
+}
+
+# csubj - clausal subject
+$8  == "csubj"     { printf("%s %s %s;CSBJ\n", $1, $2, process_word($4, $6) process_ner($7)) ; next }
+# csubjpass - passive clausal subject
+$8  == "csubjpass" { printf("%s %s %s;CSBJPASS\n", $1, $2, process_word($4, $6) process_ner($7)) ; next }
+
+# nsubj - nominal subject
+$8  == "nsubj"     { printf("%s %s %s;SBJ\n", $1, $2, process_word($4, $6) process_ner($7)) ; next }
+# nsubjpass - passive nominal subject
+$8  == "nsubjpass" { printf("%s %s %s;SBJPASS\n", $1, $2, process_word($4, $6) process_ner($7)) ; next }
+
+# dobj - direct object
+$8  == "dobj"      { printf("%s %s %s;OB1\n", $1, $2, process_word($4, $6) process_ner($7)) ; next }
+
+# iobj - indirect object
+$8  == "iobj"      { printf("%s %s %s;OB2\n", $1, $2, process_word($4, $6) process_ner($7)) ; next }
+
+# ccomp - clausal complement with internal subject
+$8  == "ccomp"     { printf("%s %s %s;CCOMP\n", $1, $2, process_word($4, $6) process_ner($7)) ; next }
+
+# xcomp - clausal complement with external subject (subject of the clausal complement is controlled)
+$8  == "xcomp"     { printf("%s %s %s;XCOMP\n", $1, $2, process_word($4, $6) process_ner($7)) ; next }
+
+$NF == "prd"       { printf("%s %s %s;PRD2\n", $1, $2, process_word($4, $6) process_ner($7)) ; next }
+
+$NF == "nmod:tmod" { printf("%s %s %s;TMP\n", $1, $2, process_word($4, $6) process_ner($7)) ; next }
+
+                   { printf("%s %s %s\n", $1, $2, process_word($4, $6) process_ner($7)) ; next }
+  ' | table_to_tree
+done | \
+if test "${PENN}"; then
+  tsurgeon_script ${DIR}/change_corenlp.tsurgeon
+else
+  penn_to_ts_tags | \
+  tsurgeon_script ${DIR}/change_corenlp.tsurgeon ${DIR}/penn_to_ts.tsurgeon | \
+  awk -v BASENAME="${BASENAME}" '
+function clean(s) {
+  s = gensub(/^\(ROOT /, "", 1, s)
+  s = gensub(/\)$/, "", 1, s)
+  return(s)
+}
+
+{ printf("( %s (ID %s_%s;EN))\n", clean($0), ++NUM, BASENAME) }
+'
+fi
+
+rm ${TEMP1} ${TEMP2} ${TEMP3}
+

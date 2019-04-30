@@ -1,0 +1,825 @@
+define(`_clause', `/^(S|SINV|SQ|VP|IP|IML)\b/')dnl
+define(`_clauseplus', `/^(S|SINV|SQ|VP|IP|IML|CP|SBAR|SBARQ)\b/')dnl
+define(`_npmod', `/^(S|SINV|SQ|PP|ADJ|ADV|VP|IP|CP|ADJP|ADVP|PRN)\b/')dnl
+define(`_mod', `/^(S|SINV|SQ|PP|ADJ|ADV|VP|IP|CP|PRN)\b/')dnl
+define(`_NP', `/^(WHNP|NP|NML)\b/')dnl
+define(`_nppart', `/^(N|NS|NPR|NPRS)\b/')dnl
+define(`_participle', `HAG|HVN|BAG|BEN|DAG|DON|VVN|VAG')dnl
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% NONE
+/^original\[-NONE-\]$/ < /^(0|\*\?\*)$/=x !> /^WH/
+
+prune x
+
+
+/^original\[-NONE-\]$/=x < __
+
+excise x x
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% move index
+/^(.+)-(\p{Digit}+)$/`#'1\%cat`#'2\%index=x <: /^(\*.*)$/`#'1\%zero=y
+
+relabel x /^.*$/\%{cat}/
+relabel y /^.*$/\%{zero}-\%{index}/
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+NP=x < EX
+
+excise x x
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+NP-SBJ < /^\*PRO\*/=x
+
+prune x
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% CONJP
+CONJP=x < (__ < __)
+
+relabel x CONJ
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+PRT=x <: P-ROLE=y
+
+relabel y RP
+excise x x
+
+
+PRT=x <: RP
+
+excise x x
+
+
+/^WHNP/ < P-ROLE=x
+
+relabel x WPRO
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% mark object
+VP < NP=x
+
+relabel x NP-OB1
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% clause
+PRN=x < _clause < CONJ
+
+adjoinH ( IP-MAT@) x
+
+
+_clause=x < (_clause $.. CONJ) !== /^IML\b/
+
+adjoinH ( IML@) x
+
+_clause=x > /^IML\b/ $ CONJ !== /^IML\b/
+
+relabel x IML
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% move punctuation
+PU=x >1 (__=y > (__ > __))
+
+move x $+ y
+
+
+PU=x >-1 (__=y > (__ > __))
+
+move x $- y
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% UCP
+/^UCP\b(.*)$/`#'1\%rest=x <1 /^(NP|ADJP|ADVP|PP|IML|VP)\b/`#'1\%cat
+
+relabel x /^.*$/\%{cat}\%{rest}/
+
+
+/^UCP\b(.*)$/`#'1\%rest=x <1 /^(N|ADJ|ADV)\b/`#'1\%cat
+
+relabel x /^.*$/\%{cat}P\%{rest}/
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% NP-POS
+/^NP\b(.*)$/`#'1\%rest=x !== /^NP-POS\b/ < POS > _NP
+
+relabel x /^.*$/NP-POS\%{rest}/
+
+
+/^(.+)\$$/`#'1\%cat=x < __
+
+adjoinF (NP-POS @) x
+relabel x /^.*$/\%{cat}/
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% PRN with NP
+(/^NP\b/ !== /^NP-/) $.. (/^NP\b/=x !== /^NP-/) > _NP !$ CONJ
+
+adjoinF (PRN @) x
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% NP-SBJ
+NP-SBJ=x > (VP !$ EX)
+
+relabel x NP-DOB1
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% ADV under clause
+ADV=x > _clause
+
+adjoinF (ADVP @) x
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% infinitive
+%%% VP=x < (TO < __)
+%%% 
+%%% relabel x IP-INF
+
+
+/^PP\b/ < TO=x
+
+relabel x P-ROLE
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% WD
+WD=x >: _NP
+
+relabel x WPRO
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% SBAR
+/^SBAR\b(.*)$/`#'1\%rest=x < (P-ROLE=y < that|That|THAT)
+
+relabel y C
+relabel x /^.*$/CP-THT\%{rest}/
+
+
+/^SBAR\b(.*)$/`#'1\%rest=x < /^P-CONN/
+
+relabel x /^.*$/PP\%{rest}/
+
+
+/^SBAR\b(.*)$/`#'1\%rest=x < (/^WH.+-(\p{Digit}+)$/`#'1\%index=y $. (_clause=a <1 (__ < /^\*T\*-(\p{Digit}+)$/`#'1\%index=z))) !<3 __ [ > _NP | > (/^SBAR\b/ > _NP < CONJ) | > /^ADJP\b/ | > (/^SBAR\b/ > /^ADJP\b/ < CONJ) ]
+
+move y $+ z
+delete z
+excise y y
+excise a a
+relabel x /^.*$/IP-REL\%{rest}/
+
+
+/^SBAR\b(.*)$/`#'1\%rest=x < (/^WH/=y $.. _clause=a) [ > _NP | > (/^SBAR\b/ > _NP < CONJ) ]
+
+relabel x /^.*$/IP-REL\%{rest}/
+excise a a
+
+
+/^SBAR\b(.*)$/`#'1\%rest=x < (/^W/=y $.. _clause=a)
+
+adjoinF (=y @) x
+relabel x IP-SUB
+relabel y /^.*$/CP-QUE\%{rest}/
+excise a a
+
+
+/^IP-REL-NOM(.*)$/`#'1\%rest=x
+
+relabel x /^.*$/IP-FRL\%{rest}/
+
+
+/^IP-REL-(TMP)(.*)$/`#'1\%funct`#'2\%rest=x
+
+relabel x /^.*$/IP-FRL-\%{funct}\%{rest}/
+
+
+/^SBARQ\b(.*)$/`#'1\%rest=x < _clause=a
+
+adjoinF (=y @) x
+relabel x IP-SUB
+relabel y /^.*$/CP-QUE\%{rest}/
+excise a a
+
+
+/^SBAR\b/=x <: S
+
+excise x x
+
+
+/^SBAR\b(.*)/`#'1\%rest=x < CONJ < /^(CP-QUE|CP-THT|IP-REL|PP)\b/`#'1\%cat
+
+relabel x /^.*$/\%{cat}\%{rest}/
+
+
+/^(IP-REL|SQ)/`#'1\%cat=x < CONJ < /^(IP-REL|SQ)/`#'1\%cat
+
+adjoinH ( IML@) x
+
+
+IP-REL|SQ=x $ CONJ > IML
+
+relabel x IML
+
+
+/^SQ\b(.*)$/`#'1\%rest=x
+
+adjoinH ( IP-SUB@) x
+relabel x /^.*$/CP-QUE\%{rest}/
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% constituent names
+/^WH(ADJP|ADVP|NP)\b(.*)$/`#'1\%cat`#'2\%rest=x
+
+relabel x /^.*$/\%{cat}\%{rest}/
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% conjunction structure
+CONJ=x !> CONJP $. __=y > /^ADJP\b/ !>1 __
+
+createSubtree CONJP-ADJP x y
+
+
+CONJ=x !> CONJP $. __=y > /^ADVP\b/ !>1 __
+
+createSubtree CONJP-ADVP x y
+
+
+CONJ=x !> CONJP $. __=y > _NP !>1 __
+
+createSubtree CONJP-NP x y
+
+
+CONJ=x !> CONJP $. __=y > /^PP\b/ !>1 __
+
+createSubtree CONJP-PP x y
+
+
+CONJ=x !> CONJP $. __=y > /^IML\b/ !>1 __
+
+createSubtree CONJP-IML x y
+
+
+CONJ=x !> CONJP $. __=y > /^VP\b/ !>1 __
+
+createSubtree CONJP-VP x y
+
+
+CONJ=x !> CONJP $. __=y > /^CP-QUE\b/ !>1 __
+
+createSubtree CONJP-CP-QUE x y
+
+
+CONJ=x !> CONJP $. __=y > /^CP-THT\b/ !>1 __
+
+createSubtree CONJP-CP-THT x y
+
+
+/^CONJP\b/=x $. !CONJP=y > /^(.+)\b/`#'1\%cat !< /^(.+)$/`#'1\%cat
+
+move y >-1 x
+
+
+ADJP=x $,, ADJP $.. /^CONJP\b/
+
+adjoinF (CONJP @) x
+
+
+ADVP=x $,, ADVP $.. /^CONJP\b/
+
+adjoinF (CONJP @) x
+
+
+NP=x $,, NP $.. /^CONJP\b/
+
+adjoinF (CONJP @) x
+
+
+PP=x $,, PP $.. /^CONJP\b/
+
+adjoinF (CONJP @) x
+
+
+IML=x $,, IML $.. /^CONJP\b/
+
+adjoinF (CONJP @) x
+
+
+VP=x $,, VP $.. /^CONJP\b/
+
+adjoinF (CONJP @) x
+
+
+/^CP-QUE\b/=x $,, /^CP-QUE\b/ $.. /^CONJP\b/
+
+adjoinF (CONJP @) x
+
+
+/^CP-THT\b/=x $,, /^CP-THT\b/ $.. /^CONJP\b/
+
+adjoinF (CONJP @) x
+
+
+/^CONJP-(NP|ADJP|ADVP|PP|IML|VP|CP-QUE|CP-THT)\b/`#'1\%cat=x < /^(.+)$/`#'1\%cat
+
+relabel x CONJP
+
+
+/^CONJP-(NP|ADJP|ADVP|PP|IML|VP|CP-QUE|CP-THT)\b/`#'1\%cat=x <1 CONJ=y
+
+adjoinF (CONJP @) x
+move y $+ x
+relabel x /^.*$/\%{cat}/
+
+
+CONJP > /^(NP|ADJP|ADVP|PP|IML|VP|CP-QUE|CP-THT)\b/`#'1\%cat=y !$,, /^(NP|ADJP|ADVP|PP|IML|VP|CP-QUE|CP-THT)$/`#'1\%cat
+
+insert (=x) >1 y
+relabel x /^.*$/\%{cat}/
+
+
+/^(NP|ADJP|ADVP|PP|IML|VP|CP-QUE|CP-THT)$/`#'1\%cat=y $. !CONJP=x $.. CONJP
+
+move x >-1 y
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% noun phrase structure
+NP=x > _NP $ _npmod < CONJP
+
+relabel x NML
+
+
+NP=x > _NP $ _npmod !$ CONJP
+
+excise x x
+
+
+NP > _NP $ CONJP $ (_npmod >-1 !NML=x)
+
+adjoinH ( NML@) x
+
+
+NML=y < CONJP [ <-1 _npmod=x | <-1 PU|PUQ=x ]
+
+move x $- y
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% adverb phrase structure
+ADVP=x > /^ADVP\b/ $ _mod
+
+excise x x
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% adjective phrase structure
+ADJP=x > /^ADJP\b/ $ _mod
+
+excise x x
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% verb phrase structure
+VP=x [ < _participle | < (IML < (IML < _participle)) ] > _clause $ (/^V/ !== /^VP/)
+
+relabel x IP-PPL-OB1
+
+
+VP=x [ < _participle | < (IML < (IML < _participle)) ] > _clause $ __
+
+relabel x IP-PPL-PRD2
+
+
+VP=x [ < _participle | < (IML < (IML < _participle)) ] $ __
+
+relabel x IP-PPL
+
+
+VP=x !$ CONJP !> CONJP !< CONJP
+
+excise x x
+
+
+VP=x
+
+relabel x IML
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% remove duplicate structure
+/^(..)\b/`#'1\%content <: /^(..)$/`#'1\%content=x
+
+excise x x
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% LGS
+/^NP-LGS\b(.*)$/`#'1\%nprest=x > (/^PP\b(.*)$/`#'1\%pprest=y !== /^PP-LGS/)
+
+relabel x /^.*$/NP\%{nprest}/
+relabel y /^.*$/PP-LGS\%{pprest}/
+
+
+/^PP-LGS/=y $ CONJP > PP=x
+
+relabel x PP-LGS
+relabel y PP
+
+/^PP-LGS/=y > (CONJP > PP-LGS)
+
+relabel y PP
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% remove A movement trace
+/^\*-[0-9]$/ !< __ > (/^NP\b/ > (IP-MAT=x > (__ > __) $ /^V/))
+
+relabel x IP-PPL-OB1
+
+
+/^\*-[0-9]$/ !< __ > (/^NP\b/ > (IP-MAT=x > (__ > __)))
+
+relabel x IP-PPL-PRD2
+
+
+/^\*-[0-9]$/=y !< __ > (/^NP\b/=x !== /\bSBJ\b/ !$ /LGS/)
+
+relabel x NP-LGS
+relabel y /*/
+
+
+/^\*-[0-9]$/=x !< __ > /^NP\b/
+
+prune x
+
+
+NP-OB1=x < /^\*$/ !$ /LGS/ $ _participle
+
+relabel x NP-LGS
+
+
+NP-OB1=x < /^\*$/ $ /LGS/ $ _participle
+
+prune x
+
+
+NP-SBJ < /^\*$/=x
+
+prune x
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% trace
+/^\*(RNR|T)\*-(\p{Digit}+)$/`#'2\%index=x
+
+relabel x /^.*$/*ICH*-\%{index}/
+
+
+/^\*ICH\*-(\p{Digit}+)$/`#'1\%index=x > (/^(.+)-(.+)$/`#'1\%cat`#'2\%rest $ /^(.+)-(\p{Digit}+)$/`#'1\%cat`#'2\%index=y)
+
+relabel y /^.*$/\%{cat}-\%{rest}/
+prune x
+
+/^\*ICH\*-(\p{Digit}+)$/`#'1\%index=x > (__ $ /^(.+)-(\p{Digit}+)$/`#'1\%cat`#'2\%index=y)
+
+prune x
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% remove stranded index
+/^(.+)-(\p{Digit}+)$/`#'1\%content`#'2\%index=x !.. /-(\p{Digit}+)$/`#'1\%index !,, /-(\p{Digit}+)$/`#'1\%index !>> /-(\p{Digit}+)$/`#'1\%index !<< /-(\p{Digit}+)$/`#'1\%index
+
+relabel x /^.*$/\%{content}/
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% S
+/^(IP-MAT|S)\b/=x > /^PP\b/ < __
+
+relabel x IP-ADV
+
+
+_clause=x !== /^IP-SUB/ > /^CP/ < __
+
+relabel x IP-SUB
+
+
+S=y <: /^IP-PPL-PRD2\b(.*)/`#'1\%rest=x > (__ > __)
+
+relabel x /^.*$/IP-PPL\%{rest}/
+excise y y
+
+
+S|SINV=x $ (/^V/ !== /^VP\b/) < __
+
+relabel x IP-MAT-OB1
+
+
+/^(S|SINV)\b(.*)/`#'2\%rest=x < __
+
+relabel x /^.*$/IP-MAT\%{rest}/
+
+
+IP-MAT-CLF=a < (CP-QUE=b < IP-SUB=i) < (NP-SBJ=c < PRO)
+
+relabel a IP-MAT
+relabel b IP-CLF-SBJ
+relabel c NP-DSBJ
+excise i i
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% IP-INF
+%%% IP-INF=x >: /^IP-(PPL|MAT)\b(.*)$/`#'2\%rest=y
+%%% 
+%%% relabel x /^.*$/IP-INF\%{rest}/
+%%% excise y y
+%%% 
+%%% 
+%%% IP-INF=x $ (/^(V|H)/ !== /^VP\b/) !$ /\bOB1\b/
+%%% 
+%%% relabel x IP-INF-OB1
+%%% 
+%%% 
+%%% /^IP-PPL-PRD2\b/=x >: /^IP-(PPL|MAT)\b(.*)$/`#'2\%rest=y
+%%% 
+%%% relabel x /^.*$/IP-PPL\%{rest}/
+%%% excise y y
+
+
+/^IP-PPL-NOM\b(.*)/`#'1\%rest=x > /^PP\b/
+
+relabel x /^.*$/IP-PPL\%{rest}/
+
+
+%%% /\bPRD\b/ >: /^IP-MAT-OB1/=x
+%%% 
+%%% excise x x
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% CP-THT
+/^CP-(THT|QUE)$/`#'1\%cat=x $ /^V/
+
+relabel x /^.*$/CP-\%{cat}-OB1/
+
+
+/^(CP-THT|CP-QUE|IP-INF|IP-MAT)-(\p{Digit}+)$/`#'1\%cat`#'2\%index=x
+  $ (NP-SBJ=y < (NP=a < PRO) < (_clauseplus < /^\*(ICH|EXP)\*-(\p{Digit}+)$/`#'2\%index=e))
+
+prune e
+relabel y NP-DSBJ
+relabel x /^.*$/\%{cat}-SBJ/
+excise a a
+
+
+/^(CP-THT|CP-QUE|IP-INF|IP-MAT)-(\p{Digit}+)$/`#'1\%cat`#'2\%index=x
+  $ (NP-SBJ=y < PRO < (_clauseplus < /^\*(ICH|EXP)\*-(\p{Digit}+)$/`#'2\%index=e))
+
+prune e
+relabel y NP-DSBJ
+relabel x /^.*$/\%{cat}-SBJ/
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% move out of conjunction
+/-\p{Digit}+$/=x >-1 (__=y < CONJP)
+
+move x $- y
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% fix IP
+/^(CP-THT|CP-QUE|IP-REL|IP-INF)-(\p{Digit}+)$/`#'1\%cat`#'2\%index : (/^(IP-MAT|SBAR)\b(.*)$/`#'2\%rest=x < /^\*ICH\*-(\p{Digit}+)$/`#'1\%index)
+
+relabel x /^.*$/\%{cat}\%{rest}/
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% NEG
+ADVP=x <: (ADV=y < /^(not|n't)$/)
+
+excise y y
+relabel x NEG
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% small clause
+/^IP-MAT\b(.+)$/`#'1\%rest=x !< /^(H|B|D|V)/ !< IML
+
+relabel x /^.*$/IP-SMC\%{rest}/
+
+
+/^IP-MAT\b(.+)$/`#'1\%rest=x !< /^(MD|H|B|D)/ < VB
+
+relabel x /^.*$/IP-SMC\%{rest}/
+
+
+/^IP-SMC\b/=a <1 NP-SBJ=b <2 /\b(PRD|PRD2)\b/ !< 3 __
+
+relabel b NP-DOB1
+excise a a
+
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% SBAR
+/^SBAR\b(.*)$/`#'1\%rest=x < P-ROLE
+
+relabel x /^.*$/PP\%{rest}/
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% IP-ADV
+/^(IP-MAT|IP-ADV)\b(.*)$/`#'2\%rest=x <<, (_participle < (__ !< __))
+
+relabel x /^.*$/IP-PPL\%{rest}/
+
+
+/^(IP-MAT|IP-ADV|IP-SMC)\b(.*)$/`#'2\%rest=x << (TO < (__ !< __) !>> (/IP\b/ >> =x))
+
+relabel x /^.*$/IP-INF\%{rest}/
+
+
+IP-MAT-ADV=x
+
+relabel x IP-ADV
+
+
+IP-MAT=x > /^PP\b/
+
+relabel x IP-ADV
+
+
+IP-ADV|IP-PPL=a > /^PP\b/ <: /^IP-PPL\b/=b
+
+relabel a IP-PPL
+excise b b
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% IP-REL trace
+/^0$/=x > (__ > /^IP-REL/)
+
+relabel x /*T*/
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% IP-INF-REL
+IP-REL=x <1 (NP-SBJ < /\*T\*/) <2 IP-INF=y !<3 __
+
+relabel x IP-INF-REL
+excise y y
+
+
+/^IP-REL\b(.+)$/`#'1\%extra=x < TO
+
+relabel x /^.*$/IP-INF-REL\%{extra}/
+
+
+NP=x < /^\*T\*/ $ (/^NP\b-/ < /^\*T\*/)
+
+delete x
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+CP-QUE-NOM=x <: IP-SUB=y
+
+relabel x IP-FRL
+excise y y
+
+
+/^CP-QUE-(.+)$/`#'1\%extra=x !== /^CP-QUE-(OB|PRD)/ !== /^CP-QUE-\p{Digit}+$/ <: IP-SUB=y
+
+relabel x /^.*$/IP-FRL-\%{extra}/
+excise y y
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% EX
+NP-SBJ=x < EX $ /^(.+)-PRD/`#'1\%cat=y
+
+relabel y /^.*$/\%{cat}-SBJ/
+excise x x
+
+
+%%%%%%%%%%%%%%%%%%%%%%%
+% INTJ
+INTJ < (INTJ=x < __)
+
+excise x x
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+P-ROLE=a $. N=b > /^PP\b/
+
+createSubtree P-ROLE a b
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% ROOT NP
+/^(PP|NP)\b/=x > (__ !> __)
+
+adjoinF (FRAG @) x
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% move ADVP out
+/^ADVP\b/=x >1 IML=y $ CONJP
+
+move x $+ y
+
+
+/^ADVP\b/=x >-1 IML=y $ CONJP
+
+move x $- y
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+% IP-IMP
+IP-SMC-IMP=x
+
+relabel x IP-IMP
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+% move SBJ out of INF
+/^IP-INF/=x !== /\bREL\b/ <1 /^NP-SBJ\b(.*)$/`#'1\%extra=y
+
+move y $+ x
+relabel y /^.*$/NP-DOB1\%{extra}/
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+% NML changes
+NML=x $ CONJP > _NP
+
+relabel x NP
+
+
+NP <: NML=x
+
+excise x x
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+% remove layers under part-of-speech
+/^(CONJ|P-ROLE)$/ < (__=x < __)
+
+excise x x
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+% merge words
+__=x !< __ $. (__=y !< __)
+
+relabel x /^.*$/={x}_={y}/
+delete y
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%
+% definite marking
+D=x < /^(TH|Th|th)/
+
+relabel x /D;{DEF}/
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% move punctuation
+PU|PUQ=x >1 (__=y > (__ > __)) !$ PUQ
+
+move x $+ y
+
+
+PU|PUQ=x >-1 (__=y > (__ > __)) !$ PUQ
+
+move x $- y
+
+
+PU=x >1 (__=y > (__ > __))
+
+move x $+ y
+
+
+PU=x >-1 (__=y > (__ > __))
+
+move x $- y
+
+
