@@ -1,11 +1,10 @@
 define(`_adxp', `ifelse(`$#', `0', `/^ADXP\b/', `/^ADXP\b/=$1')')dnl
 define(`_conjp', `ifelse(`$#', `0', `/^CONJP\b/', `/^CONJP\b/=$1')')dnl
 define(`_cp', `ifelse(`$#', `0', `/^CP\b/', `/^CP\b/=$1')')dnl
-define(`_i', `ifelse(`$#', `0', `/^(IP|IML|VP|FRAG)\b/', `/^(IP|IML|VP|FRAG)\b/=$1')')dnl
+define(`_i', `ifelse(`$#', `0', `/^(IP|IML|VP)\b/', `/^(IP|IML|VP)\b/=$1')')dnl
 define(`_np', `ifelse(`$#', `0', `/^NP\b/', `/^NP\b/=$1')')dnl
 define(`_xnp', `ifelse(`$#', `0', `/^(NP|NML)\b/', `/^(NP|NML)\b/=$1')')dnl
 define(`_pp', `ifelse(`$#', `0', `/^PP\b/', `/^PP\b/=$1')')dnl
-define(`_prn', `ifelse(`$#', `0', `/^PRN\b/', `/^PRN\b/=$1')')dnl
 dnl
 define(`_STAR', `ifelse(`$#', `0', `\*', `\*$1\*')')dnl
 define(`_DOT', `ifelse(`$#', `0', `(\.|__dot__)', `(\.|__dot__)$1')')dnl
@@ -15,64 +14,43 @@ dnl
 
 
 %------------------------------------
+% REF
 %------------------------------------
-%%% START REDUCED
-%------------------------------------
-%------------------------------------
+/^REF;\{([^}]+)\}$/`#'1\%sort=x < CONJP
 
-MD|NEG|Q=x < __
-
-adjoinF (ADXP @) x
-relabel x ADX
+insert (SORT =y) >1 x
+relabel y /^.*$/\%{sort}/
+insert (ACT REF) >1 x
+adjoin (PP (ROLE *) NP@) x
 
 
-ACT=x < /\bexists\b/
+/^REF;\{([^}]+)\}$/`#'1\%sort=x == /(SPEAKER|HEARER)/ < /^\*$/=y
 
-prune x
-
-
-QN=x < __
-
-relabel x N
-
-/^(.+)\bCND\b(.*)/`#'1\%start`#'2\%rest=x < __
-
-relabel x /^.*$/\%{start}\%{rest}/
+insert (NPR =z) >-1 x
+relabel z /^.*$/\%{sort}/
+adjoinF (SORT @) y
+adjoin (PP (ROLE *) NP@) x
+relabel y /^.*$/\%{sort}/
 
 
-%------------------------------------
-%------------------------------------
-%%% END REDUCED
-%------------------------------------
-%------------------------------------
+/^REF;\{([^}]+)\}$/`#'1\%sort=x < /^\*$/=y
 
-%------------------------------------
-% remove WORD|ZERO layer
-%------------------------------------
-/^(WORD|ZERO)/=x < __
-
-excise x x
-
-
-%---------------------------------------------
-% change embedded clause information
-%---------------------------------------------
-/^IP-(PPL|ADV|INF|NML|SMC)(.*)$/`#'2\%extra=x << (/\b(DSBJ|SBJ|ARG0)\b/ !>> (/^IP\b/ >> =x))
-
-relabel x /^.*$/IP-SUB\%{extra}/
-
-
-/^IP-(PPL|ADV|INF|NML|SMC)(.*)$/`#'2\%extra=x
-
-relabel x /^.*$/IP-CTL\%{extra}/
+adjoinF (SORT @) y
+adjoin (PP (ROLE *) NP@) x
+relabel y /^.*$/\%{sort}/
 
 
 %------------------------------------
 % change pro
 %------------------------------------
-/^NP/ < (/^_STAR./=x !< __ !== /^_STAR(T\p{Digit}*)/ !== /^_STAR(ICH\p{Digit}*)/)
+/^NP\b/ < (/^_STAR./=x !< __ !== /^_STAR(T\p{Digit}*)/ !== /^_STAR(ICH\p{Digit}*)/)
 
 adjoinF (PRO @) x
+
+
+%====================================
+% Reposition material
+%====================================
 
 
 %------------------------------------
@@ -86,6 +64,61 @@ relabel y /^.*$/\%{middle}/
 
 
 %------------------------------------
+% maintain scope position for PP modifier
+%------------------------------------
+/^PP-(\p{Digit}+)$/#1\%index < NP=x $ (__=y << /^\*ICH\*-(\p{Digit}+)$/#1\%index)
+
+insert (NP =w) $+ y
+relabel w /*ICH*/
+coindex x w
+
+
+%------------------------------------
+% quantifier raising
+%------------------------------------
+NP=a $. __=x < /^\*ICH\*-(\p{Digit}+)$/#1\%index
+  [ $.. /^(NP\b.*)-(\p{Digit}+)$/#1\%start#2\%index=b |
+    $ (__ << /^(NP\b.*)-(\p{Digit}+)$/#1\%start#2\%index=b)
+  ]
+
+relabel a /^.*$/\%{start}/
+relabel b /^.*$/NP-\%{index}/
+move a $+ b
+move b $+ x
+
+%------------------------------------
+% raising, right node raising, and tough construction
+%------------------------------------
+/^NP(-|-DSBJ-|-DOB1-)(\p{Digit}+)$/`#'2\%index=x
+  [ $ (/^NP\b/ < /^_STAR(ICH)-(\p{Digit}+)$/`#'1\%index=y) |
+    $ (__ << (/^NP\b/ < /^_STAR(ICH)-(\p{Digit}+)$/`#'1\%index=y))
+  ]
+
+relabel y /^.*$/*T\%{index}*/
+relabel x /^.*$/NP-\%{index}/
+
+
+/^NP(-|-DSBJ-|-DOB1-)(\p{Digit}+)$/`#'2\%index=x
+  [ $,, (/^NP\b/=h < /^_STAR(T(\p{Digit}+))$/`#'1\%index) |
+    $,, (__=h << (/^NP\b/ < /^_STAR(T(\p{Digit}+))$/`#'1\%index))
+  ]
+
+move x $+ h
+adjoin (PP (ROLE =y) NP@) x
+relabel y /^.*$/*T\%{index}*/
+relabel x /^.*$/NP-\%{index}/
+
+
+/^NP-(\p{Digit}+)$/`#'1\%index=x
+  [ $ (/^NP\b/ < /^_STAR(T(\p{Digit}+))$/`#'1\%index) |
+    $ (__ << (/^NP\b/ < /^_STAR(T(\p{Digit}+))$/`#'1\%index))
+  ]
+
+adjoin (PP (ROLE =y) NP@) x
+relabel y /^.*$/*T\%{index}*/
+
+
+%------------------------------------
 % remove extension tags for node with index
 %------------------------------------
 /^([^-]+)-.+(-\p{Digit}+)$/`#'1\%main`#'2\%index=x < __
@@ -93,12 +126,332 @@ relabel y /^.*$/\%{middle}/
 relabel x /^.*$/\%{main}\%{index}/
 
 
+%%% %------------------------------------
+%%% % untopicalize
+%%% %------------------------------------
+%%% % __ << (/-(\p{Digit}+)$/`#'1\%index=x !> /^_STAR(T)/ !== /^W/) << (/^_STAR(T)-(\p{Digit}+)$/`#'1\%index=y !< __)
+%%% 
+%%% % insert x >1 y
+%%% 
+%%% 
+%%% __ << (/-(\p{Digit}+)$/`#'1\%index=x !> /^_STAR(T)-(\p{Digit}+)$/`#'1\%index !< /-(\p{Digit}+)$/`#'1\%index !== /^W/) << (/^_STAR(T)-(\p{Digit}+)$/`#'1\%index < /-(\p{Digit}+)$/`#'1\%index)
+%%% 
+%%% prune x
+%%% 
+%%% 
+%%% /^_STAR(T)-(\p{Digit}+)$/`#'1\%index=x <: /-(\p{Digit}+)$/`#'1\%index=y
+%%% 
+%%% excise x y
+
+%%% %------------------------------------
+%%% % move embedded ICH
+%%% %------------------------------------
+%%% /^_STAR(ICH)-(\p{Digit}+)$/`#'1\%index > (__ >> (PRN=x >> /-(\p{Digit}+)$/`#'1\%index=y))
+%%% 
+%%% move x $+ y
+%%% excise x x
+
+%------------------------------------
+% unextrapose to ICH allowing multiple instances
+%------------------------------------
+/^_STAR(ICH)-(\p{Digit}+)$/`#'1\%index=y !$ __ : /^[A-Z0-9-]+-(\p{Digit}+)$/`#'1\%index=z
+
+insert z $+ y
+
+
+%------------------------------------
+% remove extraposed ICH element
+%------------------------------------
+/^_STAR(ICH)-(\p{Digit}+)$/`#'1\%index=y : (/^[A-Z0-9-]+-(\p{Digit}+)$/`#'1\%index=z !$+ /^_STAR(ICH)-(\p{Digit}+)$/`#'1\%index)
+
+prune z
+
+
+(/^[A-Z0-9-]+-(\p{Digit}+)$/`#'1\%index=y $+ /^_STAR(ICH)-(\p{Digit}+)$/`#'1\%index=x) > __
+
+delete x
+excise y y
+
+
+%------------------------------------
+% remove indexing
+%------------------------------------
+/^(.*)-\p{Digit}+$/`#'1\%tag=x
+
+relabel x /^.*$/\%{tag}/
+
+
+%====================================
+%%% START JPN
+%====================================
+
+
+%------------------------------------ (JPN)
+% Kusunoki support
+%------------------------------------
+
+/^onoma/=x > /^(NP|NML)\b/
+
+relabel x N
+
+
+/^n:prop/=x < __
+
+relabel x NPR
+
+
+/^(v|adj\b|n:vn\b|n:an\b)/=x < __ !> /^(NP|NML)\b/
+
+relabel x VB
+
+
+/^n\b/=x < __
+
+relabel x N
+
+
+/^ptl:(case|post|attr)\b/=x < __
+
+relabel x P-ROLE
+
+
+/^ptl:fina\b/=x < __
+
+relabel x PROP
+
+
+/^adv\b/=x < __
+
+relabel x ADX
+
+
+VB < /^-PAST$/ !$ (ACT < past) > __=x
+
+insert (ACT past) >1 x
+
+
+%====================================
+%%% END JPN
+%====================================
+
+
+%====================================
+%%% START REDUCED
+%====================================
+
+Q=x < __ !$ N|NS > /^NP\b/
+
+relabel x N
+
+
+MD|NEG|Q=x < __ > /^(IP|IML|VP|NP|NML)\b/
+
+adjoinF (ADXP @) x
+relabel x ADX
+
+
+ACT=x < /\bexists\b/
+
+prune x
+
+
+/^(.+)\bCND\b(.*)/`#'1\%start`#'2\%rest=x < __
+
+relabel x /^.*$/\%{start}\%{rest}/
+
+
+CONJ|P-CONN < !and=x > /^CONJP\b/
+
+relabel x and
+
+
+/^CP-QUE(.+)$/`#'1\%end=x
+
+relabel x /^.*$/IP-SUB\%{end}/
+
+
+CP-QUE=x
+
+relabel x IML
+
+
+/^IP-(INF|PPL)-PRD3(.*)$/`#'2\%end=x
+
+adjoinF (PP (ROLE =y) @) x
+relabel y /^.*$/PRD\%{end}/
+relabel x /^.*$/IP-SUB\%{end}/
+
+
+/^IP-(INF|PPL)-PRD(.*)$/`#'2\%end=x
+
+adjoinF (PP (ROLE =y) @) x
+relabel y /^.*$/PRD\%{end}/
+relabel x /^.*$/IP-CTL\%{end}/
+
+
+%====================================
+%%% END REDUCED
+%====================================
+
+%------------------------------------
+% ADVP with trace to NP
+%------------------------------------
+/^ADVP\b(.*)$/`#'1\%rest=x < /^\*T\*/
+
+relabel x /^.*$/NP\%{rest}/
+
+
+%------------------------------------
+% definite with same SORT information occuring prior to the definite
+%------------------------------------
+(/^(.+);\{DEF\}(.*)$/`#'1\%start`#'2\%end=x
+  $ (SORT=y < /^(.+)$/`#'1\%sort)
+  > (__ ,, (/^(.+)$/`#'1\%sort > SORT)) ) :
+(=x >> (!/^(IP|IML)\b/=h > /^(IP|IML|NP|NML)\b/ !$, (/^PP\b/ < (/^ROLE/ < /^__dot__e$/)))) :
+(=x !> (__ >> (/^(IP|IML|NP|NML)\b/ >> =h)))
+
+insert (PP (ROLE @e) (NP (SORT =z) (PRO *DEF*))) $+ h
+relabel z /^.*$/\%{sort}/
+delete y
+
+
+%------------------------------------
+% some binding information
+%------------------------------------
+_np(x) !< (ACT < /DEF/) !< Q < /;\{DEF\}/
+
+insert (ACT DEF) >1 x
+
+
+%------------------------------------
+% remove WORD|ZERO layer
+%------------------------------------
+/^(WORD|ZERO)/=x < __
+
+excise x x
+
+
+%------------------------------------
+% project PP with bare IP-CTL
+%------------------------------------
+/^IP-(PPL|CTL|CTL2)$/=x !$ _conjp !> _pp
+
+adjoinF (PP (ACT join) @) x
+
+
+%------------------------------------
+% change IP-NMZ
+%------------------------------------
+/^IP-NMZ(.*)$/`#'1\%end=x
+
+relabel x /^.*$/IP-PPL\%{end}/
+
+
+%---------------------------------------------
+% change embedded clause information
+%---------------------------------------------
+/^IP-(PPL|ADV|INF|SMC)(.*)$/`#'1\%base`#'2\%extra=x > /^(.+)-PRD2(.*)$/`#'1\%tag`#'2\%more=y !== /^IP-(PPL|ADV|INF|NML|SMC)2/
+
+relabel x /^.*$/IP-\%{base}2\%{extra}/
+relabel y /^.*$/\%{tag}-PRD\%{more}/
+
+
+/^IP-(PPL3|ADV3)(.*)$/`#'2\%extra=x
+
+relabel x /^.*$/IP-SUB\%{extra}/
+
+
+/^IP-(PPL|ADV|INF)(.*)$/`#'2\%extra=x == /\bABS\b/
+
+relabel x /^.*$/IP-SUB\%{extra}/
+
+
+/^IP-(PPL|ADV|INF|NML|SMC)(.*)$/`#'2\%extra=x << (/\b(DSBJ|SBJ|ARG0)\b/ [ == /-/ | > /ROLE/ ] !>> (/^IP\b/ >> =x))
+
+relabel x /^.*$/IP-SUB\%{extra}/
+
+
+/^IP-(PPL|ADV|INF|NML|SMC)(.*)$/`#'2\%extra=x
+
+relabel x /^.*$/IP-CTL\%{extra}/
+
+
+%------------------------------------
+% remove FRAME
+%------------------------------------
+FRAME=x
+
+prune x
+
+
+/^(.+);.*$/`#'1\%tag=x !> ID
+
+relabel x /^.*$/\%{tag}/
+
+
+%------------------------------------
+% Interjection
+%------------------------------------
+/^INTJP/=x < __
+
+relabel x INTJ
+
+
+INTJ=x [ $ ID | > TOP ]
+
+adjoinF (IP-MAT @) x
+
+
+IP-MAT < (INTJ=x !$ !PU|INTJ)
+
+relabel x CONJ
+
+
 %------------------------------------
 % save fragment
 %------------------------------------
 /^(IP|FRAG)\b/ !< !PU|INTJ|PUQ|PUL|PUR|SYM|LST|META|PRN < INTJ|LST=x
 
-adjoin (NP N@) x
+adjoin (NP (SORT INTJ) NPR@) x
+
+
+%------------------------------------
+% change IMP
+%------------------------------------
+%%% /^(IP|FRAG)-IMP(.*)$/`#'2\%rest=x
+%%% 
+%%% insert (ACT exists) >1 x
+%%% insert (PROP IMP) >1 x
+%%% relabel x /^.*$/IP-MAT\%{rest}/
+
+/^(IP|FRAG)-IMP(.*)$/`#'2\%rest=x
+
+insert (PP (ROLE speech_act) (NP (SORT speech_act) (NPR IMP))) >1 x
+insert (ACT exists) >1 x
+relabel x /^.*$/IP-MAT\%{rest}/
+
+
+%------------------------------------
+% change FRAG marking
+%------------------------------------
+/^FRAG(.*)$/`#'1\%end=x > _cp < __
+
+insert (SORT FRAG) >1 x
+relabel x /^.*$/IP-SUB\%{end}/
+
+
+/^FRAG(.*)$/`#'1\%end=x < __
+
+insert (SORT FRAG) >1 x
+relabel x /^.*$/IP-MAT\%{end}/
+
+
+%------------------------------------
+% change IP-CTL marking
+%------------------------------------
+/^IP-(CTL|CTL2)\b/=x [ $ ID | > TOP ]
+
+relabel x IP-MAT
 
 
 %------------------------------------
@@ -118,9 +471,9 @@ prune x
 
 
 %------------------------------------
-% remove star wrapper with P
+% remove star wrapper with P and CONJ
 %------------------------------------
-/^P\b/ < /^_STAR((.+))$/`#'1\%middle=x
+/^(P|CONJ)\b/ < /^_STAR((.+))$/`#'1\%middle=x
 
 relabel x /^.*$/\%{middle}/
 
@@ -128,30 +481,22 @@ relabel x /^.*$/\%{middle}/
 %------------------------------------
 % change P-ROLE
 %------------------------------------
-/^P-ROLE/=x
+/^P-ROLE\b(.*)$/`#'1\%extra=x < __
 
-relabel x ROLE
+relabel x /^.*$/ROLE\%{extra}/
 
 
 %------------------------------------
 % change P-CONN
 %------------------------------------
-/^P-CONN\b/=x > (/^PP\b/ !< /^IP\b/)
+/^P-CONN\b(.*)$/`#'1\%extra=x > (/^PP\b/ !< /^IP\b/)
 
-relabel x ROLE
-
-
-/^(P-CONN|C|CONJ)\b/=x
-
-relabel x CONN
+relabel x /^.*$/ROLE\%{extra}/
 
 
-%------------------------------------
-% there is no support for conjoined PP under PRN, so add FRAG layer to save structure
-%------------------------------------
-_prn <: (/^PP\b/=x < CONJP)
+/^(P-CONN|C|CONJ)\b(.*)$/`#'2\%extra=x
 
-adjoinF (FRAG @) x
+relabel x /^.*$/CONN\%{extra}/
 
 
 %------------------------------------
@@ -168,6 +513,69 @@ relabel x /^.*$/ADX\%{extra}/
 /^NUM/=x
 
 relabel x ADX
+
+
+%------------------------------------
+% collapse parenthetical content with conjunction
+%------------------------------------
+_conjp < (PRN << (ACT|SORT=x))
+
+prune x
+
+
+_conjp < (PRN < (__=x < (__ < __)))
+
+excise x x
+
+
+_conjp < (PRN=x < __)
+
+relabel x CONN
+
+
+%------------------------------------
+% for PP under PRN, where PRN is under NP
+%------------------------------------
+PRN < _pp(x) > _xnp
+
+adjoinF (NP @) x
+
+
+%------------------------------------
+% for conjoined PP under PRN, add IP-SUB layer to save structure
+%------------------------------------
+PRN < (_pp(x) < _conjp)
+
+adjoinF (IP-SUB @) x
+
+
+%------------------------------------
+% ADXP under PRN
+%------------------------------------
+PRN=x < (_adxp(y) !< ROLE)
+
+insert (ROLE __PRN__) >1 y
+excise x x
+
+
+PRN < (_adxp(x) !< (ROLE < /^__PRN__$/)) > _xnp
+
+adjoinF (NP @) x
+
+
+%------------------------------------
+% NP under PRN
+%------------------------------------
+PRN=x < NP > _xnp
+
+insert (ROLE __PRN__) >1 x
+relabel x PP
+
+
+PRN=x < NP
+
+insert (ROLE PRN) >1 x
+relabel x PP
 
 
 %------------------------------------
@@ -229,149 +637,12 @@ relabel x /^.*$/\%{start}__\%{end}/
 relabel x /^.*$/\%{start}__amp__\%{end}/
 
 
-% %------------------------------------
-% % quantifier movement, inside same clause
-% %------------------------------------
-% /^NP\b/=a < /^_STAR(ICH)-(\p{Digit}+)$/`#'1\%index $
-%   /^(NP\b.*)-(\p{Digit}+)$/`#'1\%start`#'2\%index=b
-% 
-% move b $+ a
-% relabel b /^.*$/\%{start}/
-% delete a
-% 
-% 
-% %------------------------------------
-% % quantifier raising
-% %------------------------------------
-% /^NP\b/=a $. __=x < /^_STAR(ICH)-(\p{Digit}+)$/`#'1\%index $
-%   (__ << /^(NP\b.*)-(\p{Digit}+)$/`#'1\%start`#'2\%index=b)
-% 
-% relabel a /^.*$/\%{start}/
-% relabel b /^.*$/NP-\%{index}/
-% move a $+ b
-% move b $+ x
-
-%------------------------------------
-% quantifier raising
-%------------------------------------
-/^NP\b/=a $. __=x < /^\*ICH\*-(\p{Digit}+)$/#1\%index
-  [ $ /^(NP\b.*)-(\p{Digit}+)$/#1\%start#2\%index=b |
-    $ (__ << /^(NP\b.*)-(\p{Digit}+)$/#1\%start#2\%index=b)
-  ]
-
-relabel a /^.*$/\%{start}/
-relabel b /^.*$/NP-\%{index}/
-move a $+ b
-move b $+ x
-
-
-%------------------------------------
-% raising and right node raising
-%------------------------------------
-/^NP-(\p{Digit}+)$/`#'1\%index $ (__ << (/^NP\b/ < /^_STAR(ICH)-(\p{Digit}+)$/`#'1\%index=x))
-
-relabel x /^.*$/*T\%{index}*/
-
-
-/^NP-(\p{Digit}+)$/`#'1\%index=x $,, (__=h << (/^NP\b/ < /^_STAR(T(\p{Digit}+))$/`#'1\%index))
-
-move x $+ h
-adjoin (PP (ROLE =y) NP@) x
-relabel y /^.*$/*T\%{index}*/
-
-
-/^NP-(\p{Digit}+)$/`#'1\%index=x $ (__ << (/^NP\b/ < /^_STAR(T(\p{Digit}+))$/`#'1\%index))
-
-adjoin (PP (ROLE =y) NP@) x
-relabel y /^.*$/*T\%{index}*/
-
-
-%------------------------------------
-% untopicalize
-%------------------------------------
-% __ << (/-(\p{Digit}+)$/`#'1\%index=x !> /^_STAR(T)/ !== /^W/) << (/^_STAR(T)-(\p{Digit}+)$/`#'1\%index=y !< __)
-
-% insert x >1 y
-
-
-__ << (/-(\p{Digit}+)$/`#'1\%index=x !> /^_STAR(T)-(\p{Digit}+)$/`#'1\%index !< /-(\p{Digit}+)$/`#'1\%index !== /^W/) << (/^_STAR(T)-(\p{Digit}+)$/`#'1\%index < /-(\p{Digit}+)$/`#'1\%index)
-
-prune x
-
-
-/^_STAR(T)-(\p{Digit}+)$/`#'1\%index=x <: /-(\p{Digit}+)$/`#'1\%index=y
-
-excise x y
-
-
-%------------------------------------
-% move embedded ICH
-%------------------------------------
-/^_STAR(ICH)-(\p{Digit}+)$/`#'1\%index > (__ >> (/^IP-MAT/ >: (PRN=x >> /-(\p{Digit}+)$/`#'1\%index=y)))
-
-move x $+ y
-excise x x
-
-
-%------------------------------------
-% unextrapose to ICH allowing multiple instances
-%------------------------------------
-/^_STAR(ICH)-(\p{Digit}+)$/`#'1\%index=y !$ __ : /^[A-Z0-9-]+-(\p{Digit}+)$/`#'1\%index=z
-
-insert z $+ y
-
-
-%------------------------------------
-% remove extraposed ICH element
-%------------------------------------
-/^_STAR(ICH)-(\p{Digit}+)$/`#'1\%index=y : (/^[A-Z0-9-]+-(\p{Digit}+)$/`#'1\%index=z !$+ /^_STAR(ICH)-(\p{Digit}+)$/`#'1\%index)
-
-prune z
-
-
-(/^[A-Z0-9-]+-(\p{Digit}+)$/`#'1\%index=y $+ /^_STAR(ICH)-(\p{Digit}+)$/`#'1\%index=x) > __
-
-delete x
-excise y y
-
-
-%------------------------------------
-% remove indexing
-%------------------------------------
-/^(.*)-\p{Digit}+$/`#'1\%tag=x
-
-relabel x /^.*$/\%{tag}/
-
-
-%------------------------------------
-% PRN
-%------------------------------------
-PRN=x < NP
-
-insert (ROLE __PRN__) >1 x
-relabel x PP
-
-
-/^PRN/=y < /^PP\b(.*)$/`#'1\%extra=x
-
-relabel x /^.*$/PP-PRN\%{extra}/
-excise y y
-
-
 %------------------------------------
 % push down function information from coordination with PP
 %------------------------------------
 /^([^-]+)(-.+)/`#'1\%main`#'2\%func == /^PP\b/ < _conjp [ < /^(.*)$/`#'1\%main=x | < (_conjp < /^(.*)$/`#'1\%main=x) ]
 
 relabel x /^.*$/\%{main}\%{func}/
-
-
-%------------------------------------
-% change IMP
-%------------------------------------
-/^(IP|FRAG)-IMP(.*)$/`#'2\%rest=x
-
-relabel x /^.*$/IP-MAT\%{rest}/
 
 
 %------------------------------------
@@ -403,11 +674,11 @@ relabel y /^.*$/PP\%{middle}\%{rest}/
 
 /^(.*)-SCON\b(.*)$/`#'1\%first`#'2\%end=x == /^PP\b/ !< CONJP
 
-insert (ACT scon) >1 x
+insert (ACT join) >1 x
 relabel x /^.*$/\%{first}\%{end}/
 
 
-/^(.*)-CND\b(.*)$/`#'1\%first`#'2\%end=x == /^PP\b/ < (ACT < scon=y)
+/^(.*)-CND\b(.*)$/`#'1\%first`#'2\%end=x == /^PP\b/ < (ACT < join=y)
 
 relabel x /^.*$/\%{first}\%{end}/
 relabel y cond
@@ -430,35 +701,23 @@ delete a
 %------------------------------------
 % change multi-sentence and number sentences
 %------------------------------------
-multi-sentence $ (ID < __) < !TOP=x
+multi-sentence=m $ (ID [ < /^([^@]+)@(.*)$/`#'1\%id`#'2\%rest=y | < /^(.*)()$/`#'1\%id`#'2\%rest=y !== /@/ ]) <1 !TOP=x
 
-adjoinF (TOP @ ID) x
-
-
-multi-sentence $ (ID < __=y) < (TOP < (ID=x !< __))
-
-insert y >1 x
-
-
-multi-sentence=y $ ID=x < (TOP < ID)
-
-delete x
-excise y y
-
-
-ID < !/-\p{Digit}+$/=x [ . ID | , ID ]
-
-coindex x
-
-
-ID < /^(.*)-(\p{Digit}+)$/`#'1\%id`#'2\%index=x [ . ID | , ID ]
-
-relabel x /^.*$/\%{index}_\%{id}/
+adjoinF (TOP=t @ (ID =z)) x
+relabel z /^.*$/\%{id}/
+relabel y /^.*$/\%{rest}/
+move t $+ m
 
 
 %------------------------------------
 % eliminate multi-sentence
 %------------------------------------
+multi-sentence=x !< __ $ (ID=y < /^$/)
+
+delete x
+delete y
+
+
 multi-sentence < (!CONJP=x $. __)
 
 adjoinF (CONJP @) x
@@ -470,14 +729,20 @@ relabel x IML
 
 
 %------------------------------------
+% logical subject support
 %------------------------------------
+/^NP-LGS/ < /^\*$/=x
+
+adjoinF (SORT @) x
+
+
+%====================================
 %%% START ENG
-%------------------------------------
-%------------------------------------
+%====================================
 
 /^NP-DARG0/=x <: PRO
 
-insert (SORT ARB) >1 x
+insert (SORT DUMMY) >1 x
 
 
 %------------------------------------ (ENG)
@@ -515,19 +780,11 @@ relabel x /^.*$/IP-FRL-CAR\%{end}/
 
 
 %------------------------------------ (ENG)
-% project PP with bare IP-CTL
-%------------------------------------
-IP-CTL=x !$ _conjp !> _pp
-
-adjoin (PP (ACT scon) IP-CTL@) x
-
-
-%------------------------------------ (ENG)
 % predicate clause embedding
 %------------------------------------
-/^IP-CTL-PRD(.*)$/`#'1\%end=x
+/^IP-CTL-(CAT|SEQ)(.*)$/`#'2\%end=x
 
-relabel x /^.*$/IP-CTL\%{end}/
+relabel x /^.*$/IP-CTL2\%{end}/
 
 
 %------------------------------------ (ENG)
@@ -538,13 +795,13 @@ relabel x /^.*$/IP-CTL\%{end}/
 relabel x /^.*$/IP-REL\%{end}/
 
 
-/^IP-(CTL|SUB)-REL(.*)$/`#'2\%end=x
+/^IP-(CTL|CTL2|SUB)-REL(.*)$/`#'2\%end=x
 
 adjoinH ( IP-SUB@) x
 relabel x /^.*$/CP-REL\%{end}/
 
 
-/^IP-(FRL|CLF|CTL-REL|SUB-REL)(.*)$/`#'2\%end=x < SORT=z !> _conjp !$ _conjp
+/^IP-(FRL|CLF|CTL-REL|CTL2-REL|SUB-REL)(.*)$/`#'2\%end=x < SORT=z !> _conjp !$ _conjp
 
 adjoin (=y (CP-FRL IP-SUB@)) x
 relabel y /^.*$/NP\%{end}/
@@ -584,7 +841,7 @@ insert (SORT TIME) >1 x
 %%%% %------------------------------------ (ENG)
 %%%% % unextrapose to NP-SBJ
 %%%% %------------------------------------
-%%%% /^(CP|IP|FRAG)/ << (/^NP-SBJ-(\p{Digit}+)$/`#'1\%index=x [ < PRO=y | < EX=y | < /_STAR(exp)/=y ]) << /^CP-QU[A-Z-]+-(\p{Digit}+)$/`#'1\%index=z
+%%%% /^(CP|IP)/ << (/^NP-SBJ-(\p{Digit}+)$/`#'1\%index=x [ < PRO=y | < EX=y | < /_STAR(exp)/=y ]) << /^CP-QU[A-Z-]+-(\p{Digit}+)$/`#'1\%index=z
 %%%% 
 %%%% move z >1 x
 %%%% delete y
@@ -592,7 +849,7 @@ insert (SORT TIME) >1 x
 %%%% relabel x CP-QUE-SBJ
 %%%% 
 %%%% 
-%%%% /^(CP|IP|FRAG)/ << (/^NP-SBJ-(\p{Digit}+)$/`#'1\%index=x [ < PRO=y | < EX=y | < /_STAR(exp)/=y ]) << /^CP-[A-Z-]+-(\p{Digit}+)$/`#'1\%index=z
+%%%% /^(CP|IP)/ << (/^NP-SBJ-(\p{Digit}+)$/`#'1\%index=x [ < PRO=y | < EX=y | < /_STAR(exp)/=y ]) << /^CP-[A-Z-]+-(\p{Digit}+)$/`#'1\%index=z
 %%%% 
 %%%% move z >1 x
 %%%% delete y
@@ -600,7 +857,7 @@ insert (SORT TIME) >1 x
 %%%% relabel x CP-THT-SBJ
 %%%% 
 %%%% 
-%%%% /^(CP|IP|FRAG)/ << (/^NP-SBJ-(\p{Digit}+)$/`#'1\%index=x [ < PRO=y | < EX=y | < /_STAR(exp)/=y ]) << /^IP-[A-Z-]+-(\p{Digit}+)$/`#'1\%index=z
+%%%% /^(CP|IP)/ << (/^NP-SBJ-(\p{Digit}+)$/`#'1\%index=x [ < PRO=y | < EX=y | < /_STAR(exp)/=y ]) << /^IP-[A-Z-]+-(\p{Digit}+)$/`#'1\%index=z
 %%%% 
 %%%% move z >1 x
 %%%% delete y
@@ -608,7 +865,7 @@ insert (SORT TIME) >1 x
 %%%% relabel x IP-ADV-SBJ
 %%%% 
 %%%% 
-%%%% /^(CP|IP|FRAG)/ << (/^NP-SBJ-(\p{Digit}+)$/`#'1\%index=x [ < /_STAR(exp)/=y | < EX=y | < PRO=y ]) << /^NP-(\p{Digit}+)$/`#'1\%index=z
+%%%% /^(CP|IP)/ << (/^NP-SBJ-(\p{Digit}+)$/`#'1\%index=x [ < /_STAR(exp)/=y | < EX=y | < PRO=y ]) << /^NP-(\p{Digit}+)$/`#'1\%index=z
 %%%% 
 %%%% move z >1 x
 %%%% delete y
@@ -687,7 +944,7 @@ relabel x PRO
 %------------------------------------ (ENG)
 % PP with IP-ADV complement and CONN disambiguation
 %------------------------------------
-@PP=x $. (/^CONN\b/=c < /^\*$/) < /^IP-(CTL|SUB)/=y $, (/^,$/=p $, @VP=z)
+@PP=x $. (/^CONN\b/=c < /^\*$/) < /^IP-(CTL|CTL2|SUB)/=y $, (/^,$/=p $, @VP=z)
 
 adjoinF (VP @) x
 move z $- x
@@ -696,7 +953,7 @@ relabel x CONJP
 delete c
 
 
-@PP=x $. (/^CONN\b/=c < /^\*$/) < /^IP-(CTL|SUB)/=y $, @VP=z
+@PP=x $. (/^CONN\b/=c < /^\*$/) < /^IP-(CTL|CTL2|SUB)/=y $, @VP=z
 
 adjoinF (VP @) x
 move z $- x
@@ -718,11 +975,6 @@ insert (ACT INDEF) >1 x
 _i(x) < /^(HVD|BED|DOD|VBD)\b/ !< (ACT < past)
 
 insert (ACT past) >1 x
-
-
-/^NP-LGS/ < /^\*$/=x
-
-adjoinF (SORT @) x
 
 
 _i < (/^(HVD|HVP|HV|HAG|HVN|BE|BED|BEP|BEN|BAG|DO|DOD|DON|DOP|DAG|VB|VBD|VBP|VAG|VVN)\b/=x $,, /^(HVD|HVP|HV|HAG|HVN|BE|BED|BEP|BEN|BAG|DO|DOD|DON|DOP|DAG|VB|VBD|VBP|VAG|VVN)\b/=y)
@@ -752,14 +1004,6 @@ relabel x VB
 %% /^D\b/=x < /These|these|Those|those/ !$ SORT
 %% 
 %% insert (SORT GROUP) $+ x
-
-
-%------------------------------------ (ENG)
-% change QN
-%------------------------------------
-/^QN/=x
-
-relabel x Q
 
 
 %------------------------------------ (ENG)
@@ -804,24 +1048,20 @@ relabel x NPR
 %------------------------------------
 (/-REL\b/=p << (/^W/=w < __)) :
   (=w !>> (/-(REL|QUE)\b/ >> =p)) :
-  (=w >> (!/^(IP|IML)\b/=h > /^(IP|IML)\b/ !$, (/^PP\b/ < (/^ROLE/ < /^\?e$/)))) :
-  (=w !>> (/^(IP|IML)\b/ >> =h))
+  (=w >> (!/^(IP|IML)\b/=h > /^(IP|IML|NP|NML)\b/ !$, (/^PP\b/ < (/^ROLE/ < /^\?e$/)))) :
+  (=w !> (__ >> (/^(IP|IML|NP|NML)\b/ >> =h)))
 
 insert (PP (ROLE ?e) (NP *T*)) $+ h
 
 
-%------------------------------------
-%------------------------------------
+%====================================
 %%% END ENG
-%------------------------------------
-%------------------------------------
+%====================================
 
 
-%------------------------------------
-%------------------------------------
+%====================================
 %%% START JPN
-%------------------------------------
-%------------------------------------
+%====================================
 
 
 %------------------------------------ (JPN)
@@ -892,9 +1132,9 @@ relabel x ADXP-MNR
 
 
 %% %------------------------------------ (JPN)
-%% % change IP-NML
+%% % change IP-NMZ
 %% %------------------------------------
-%% /^IP-NML(.*)$/`#'1\%end=x > /^(PP|IP)/
+%% /^IP-NMZ(.*)$/`#'1\%end=x > /^(PP|IP)/
 %% 
 %% relabel x /^.*$/IP-ADV\%{end}/
 %% 
@@ -975,11 +1215,6 @@ relabel x N
 relabel x N
 
 
-_np < /^WPRO\b/=x > /^FRAG/
-
-relabel x N
-
-
 %------------------------------------ (JPN)
 % modify ADXP construct
 %------------------------------------
@@ -999,7 +1234,7 @@ excise z z
 %------------------------------------ (JPN)
 % create coordinate structure from IP-ADV followed by conjunction marker
 %------------------------------------
-/^IP-(CTL|SUB)-CONJ(.*)$/`#'1\%start`#'2\%rest=x !$. CONN
+/^IP-(CTL|CTL2|SUB)-CONJ(.*)$/`#'1\%start`#'2\%rest=x !$. CONN
 
 relabel x /^.*$/IP-\%{start}\%{rest}/
 insert (CONN *) $- x
@@ -1124,7 +1359,7 @@ relabel z ROLE
 %------------------------------------ (JPN)
 % change some CP-QUE structure
 %------------------------------------
-_pp(x) <1 /^CP-QUE/ <2 (/^P\b/=y < /^(は|wa)($|_)/) !<3 __
+_pp(x) <1 /^CP-QUE/ <2 (/^P\b/=y < /^(は|wa|v12399)($|_)/) !<3 __
 
 delete y
 excise x x
@@ -1266,7 +1501,7 @@ relabel x /^.*$/CP-THT\%{rest}/
 %------------------------------------ (JPN)
 % some binding information
 %------------------------------------
-_pp < (/^P-OPTR/ < /^(は|wa)($|_)/) [ < (_np(x) !< ACT) | < (_pp < (_np(x) !< ACT)) ]
+_pp < (/^P-OPTR/ < /^(は|wa|v12399)($|_)/) [ < (_np(x) !< ACT) | < (_pp < (_np(x) !< ACT)) ]
 
 insert (ACT DEF) >1 x
 
@@ -1284,7 +1519,7 @@ insert (ACT INDEF) >1 x
 %------------------------------------ (JPN)
 % change P-OPTR to ADV
 %------------------------------------
-P-OPTR=x !< /^(は|wa|も|mo|だって|datte)($|_)/
+P-OPTR=x !< /^(は|wa|v12399|も|mo|v12418|だって|datte|v12384v12387v12390)($|_)/
 
 relabel x ADX
 
@@ -1294,15 +1529,6 @@ relabel x ADX
 P-OPTR=x
 
 delete x
-
-
-%------------------------------------ (JPN)
-% change QN
-%------------------------------------
-/^QN/=x < /^(...*)$/`#'1\%index=y !$. /^(...*)$/`#'1\%index
-
-insert y $- x
-relabel x Q
 
 
 Q < /^(...*)$/`#'1\%index=x $. /^(.*)$/`#'1\%index=y
@@ -1394,9 +1620,9 @@ relabel x ADXP
 
 
 %------------------------------------ (JPN)
-% change IP-NML
+% change IP-NMZ
 %------------------------------------
-/^IP-NML(.*)$/`#'1\%end=x
+/^IP-NMZ(.*)$/`#'1\%end=x
 
 adjoin (=y (CP-THT (IP-SUB@))) x
 relabel y /^.*$/NP\%{end}/
@@ -1429,35 +1655,19 @@ relabel x N
 %------------------------------------ (JPN)
 % Offset D information
 %------------------------------------
-/^D;\{([^},]+)\}(.*)$/`#'1\%sense`#'2\%rest=x !> (NP $, (ROLE < /__POS__/)) !== /\b(DEF|INDEF)\b/
+/^D;\{([^},]+)\}(.*)$/`#'1\%sense`#'2\%rest=x !> (NP $, (ROLE < /__GENV__/)) !== /\b(DEF|INDEF)\b/
 
-adjoinF (PP (ROLE __POS__) (NP (SORT =z) @)) x
+adjoinF (PP (ROLE __GENV__) (NP (SORT =z) @)) x
 relabel x /^.*$/PRO\%{rest}/
 relabel z /^.*$/\%{sense}/
 
 
 %------------------------------------ (JPN)
-% change INTJP to IP-MAT
-%------------------------------------
-/^INTJP/=x [ $ ID | > TOP ]
-
-relabel x IP-MAT
-
-
-%------------------------------------ (JPN)
-% Interjection
-%------------------------------------
-/^INTJP/=x
-
-relabel x INTJ
-
-
-%------------------------------------ (JPN)
-% change P-FINAL to REL
+% change P-FINAL to PROP
 %------------------------------------
 /^P-FINAL/=x
 
-relabel x REL
+relabel x PROP
 
 
 %------------------------------------ (JPN)
@@ -1468,11 +1678,33 @@ relabel x REL
 relabel x /^.*$/CP-THT\%{end}/
 
 
+%------------------------------------ (JPN)
+% promote CONN
 %------------------------------------
+/^CONN\b/=x >-1 (_i > /^(PP|CONJP)/=y)
+
+move x >1 y
+
+
 %------------------------------------
+% use scope position
+%------------------------------------
+/^(.+)-scope$/`#'1\%tag=y < /^_STAR$/=z $ /^(.+)$/`#'1\%tag=x
+
+delete z
+move x >1 y
+excise y y
+
+
+/^(.+)-scope-(\p{Digit}+)$/`#'1\%tag`#'2\%index=y < /^_STAR$/=z $ /^(.+)-(\p{Digit}+)$/`#'1\%tag`#'2\%index=x
+
+delete z
+move x >1 y
+excise y y
+
+%====================================
 %%% END JPN
-%------------------------------------
-%------------------------------------
+%====================================
 
 
 %------------------------------------
@@ -1494,19 +1726,6 @@ relabel x N
 
 
 %------------------------------------
-% change FRAG marking
-%------------------------------------
-/^FRAG(.*)$/`#'1\%end=x > _cp
-
-relabel x /^.*$/IP-SUB\%{end}/
-
-
-/^FRAG(.*)$/`#'1\%end=x
-
-relabel x /^.*$/IP-MAT\%{end}/
-
-
-%------------------------------------
 % project CP when relative clause
 %------------------------------------
 /^IP-REL/=x
@@ -1517,19 +1736,6 @@ adjoin (CP-REL IP-SUB@) x
 _cp <: (IP-SUB=x < _conjp < _cp)
 
 excise x x
-
-
-%------------------------------------
-% move preterminals under PRN inside
-%------------------------------------
-_prn < (__=x < (__ !< __) $. (__=y < (__)))
-
-move x >1 y
-
-
-_prn < (__=x < (__ !< __) $, (__=y < (__)))
-
-move x >-1 y
 
 
 %------------------------------------
@@ -1549,27 +1755,27 @@ relabel y /_/
 relabel x /^.*$/IML\%{rest}/
 
 
-%------------------------------------
-% change some sort behaviour
-%------------------------------------
-_np(x) < (SORT < /SPEAKER|HEARER/) !< ACT
-
-insert (ACT DEF) >1 x
+%% %------------------------------------
+%% % change some sort behaviour
+%% %------------------------------------
+%% _np(x) < (SORT < /SPEAKER|HEARER/) !< ACT
+%% 
+%% insert (ACT DEF) >1 x
 
 
 %------------------------------------
 % currently there is no support for CP that is not a relative clause under PRN or PRN under IP or IML
 %------------------------------------
-_prn(x) <: /^(IP-[^-]+|CP-[^-]+)(.*)/`#'1\%start`#'2\%end=y !< /REL/
+PRN=x <: /^(IP-[^-]+|CP-[^-]+)(.*)/`#'1\%start`#'2\%end=y !< /REL/
 
-relabel y /^.*$/\%{start}-__PRN__\%{end}/
+relabel y /^.*$/\%{start}-PRN\%{end}/
 excise x x
 
 
 %------------------------------------
 % change PP- to use functional information
 %------------------------------------
-/^PP-(.+)$/`#'1\%extra=x < (/^(ROLE|CONN|ADX)\b/ < __=y)
+/^PP-(.+)$/`#'1\%extra=x < (/^(ROLE|CONN|ADX)\b/ < __=y) !< _conjp
 
 relabel x PP
 relabel y /^(.*)$/\%{extra}_$1/
@@ -1649,24 +1855,6 @@ relabel x /^.*$/arb\%{index}/
 
 
 %------------------------------------
-% collapse parenthetical content with conjunction
-%------------------------------------
-_conjp < (_prn << (ACT|SORT=x))
-
-prune x
-
-
-_conjp < (_prn < (__=x < (__ < __)))
-
-excise x x
-
-
-_conjp < (_prn(x) < __)
-
-relabel x CONN
-
-
-%------------------------------------
 % make either IP or CP compatible with either PP or ADXP coordination
 %------------------------------------
 /^PP|ADXP/ [ < (_conjp < /^(IP|CP)/=x) | < _conjp < /^(IP|CP)/=x ]
@@ -1683,14 +1871,6 @@ adjoinF (IML @) x
 
 
 %------------------------------------
-% for annotation of disfluencies
-%------------------------------------
-INTJ=x [ $ ID | > TOP ]
-
-adjoinF (IP-MAT @) x
-
-
-%------------------------------------
 % add PP layer to CP-QUE with NP * marking
 %------------------------------------
 /^CP-QUE/=x $. (/^NP\b/ < /^_STAR$/)
@@ -1699,30 +1879,30 @@ adjoinH ( CP-QUE@) x
 relabel x /^CP-QUE(.*)$/PP$1/
 
 
-%------------------------------------
-% remove PRN layer with clause
-%------------------------------------
-_prn(x) < /^IP-MAT/=y
-
-relabel x IP-SUB-PRN
-excise y y
-
-
-%------------------------------------
-% remove PRN layer with adverbial clause
-%------------------------------------
-_prn(x) < /^IP-(CTL|SUB)/
-
-excise x x
-
-
-%------------------------------------
-% remove PRN layer with relative clause
-%------------------------------------
-_prn(x) < /^CP-REL/=y
-
-excise x x
-relabel y /^CP-REL(.*)$/CP-REL-PRN$1/
+%%% %------------------------------------
+%%% % remove PRN layer with clause
+%%% %------------------------------------
+%%% PRN=x < /^IP-MAT/=y
+%%% 
+%%% relabel x IP-SUB-PRN
+%%% excise y y
+%%% 
+%%% 
+%%% %------------------------------------
+%%% % remove PRN layer with adverbial clause
+%%% %------------------------------------
+%%% PRN=x < /^IP-(CTL|SUB)/
+%%% 
+%%% excise x x
+%%% 
+%%% 
+%%% %------------------------------------
+%%% % remove PRN layer with relative clause
+%%% %------------------------------------
+%%% PRN=x < /^CP-REL/=y
+%%% 
+%%% excise x x
+%%% relabel y /^CP-REL(.*)$/CP-REL-PRN$1/
 
 
 %------------------------------------
@@ -1795,22 +1975,22 @@ excise x x
 
 
 %------------------------------------
-% clean up NP-POS
+% clean up NP-GENV
 %------------------------------------
-POS=x > /^ROLE/
+GENM=x > /^ROLE/
 
-relabel x /__POS__/
+relabel x /__GENV__/
 
 
 %------------------------------------
 % Add sort information
 %------------------------------------
-_pp < (ROLE < /^TMP/) < (NP=x !< SORT)
+_pp < (ROLE < /^TMP/) < (NP=x !< SORT !< /^\*T/)
 
 insert (SORT TIME) >1 x
 
 
-_pp < (ROLE < /^LOC/) < (NP=x !< SORT)
+_pp < (ROLE < /^LOC/) < (NP=x !< SORT !< /^\*T/)
 
 insert (SORT PLACE) >1 x
 
@@ -1931,7 +2111,7 @@ relabel y /^.*$/\%{end}/
 %------------------------------------
 % establish ADXP linking information from commanding PP
 %------------------------------------
-_pp(z) < (/^ROLE\b/=x < __=w) < (ADXP=y !< _conjp !< ROLE)
+_pp(z) < (/^ROLE\b/=x < __=w) [ < (ADXP=y !< _conjp !< ROLE) | < (ADXP < _conjp < (ADXP=y !< _conjp !< ROLE)) | < (ADXP < (CONJP < (ADXP=y !< _conjp !< ROLE))) ]
 
 insert (ROLE =l) >1 y
 relabel l /^.*$/={w}/
@@ -1999,12 +2179,8 @@ insert y $+ x
 %------------------------------------
 /^NP\b/ < INTJ=x !< N
 
-relabel x RINTJ
-
-
-RINTJ=x
-
-relabel x N
+relabel x NPR
+insert (SORT INTJ) $+ x
 
 
 %------------------------------------
@@ -2191,7 +2367,7 @@ _pp < /^(IP|IML|CP)\b/ < (SORT < /__dummy__/=y) < (/^ROLE/ < /^(.*)$/`#'1\%sort)
 relabel y /^(.*)$/\%{sort}/
 
 
-_pp(y) < /^(IP|IML|CP)\b/ !< (ACT < /^(scon|cond)/) !< SORT
+_pp(y) < /^(IP|IML|CP)\b/ !< (ACT < /^(join|cond)/) !< SORT
 
 insert (SORT SITUATION) >1 y
 
@@ -2199,7 +2375,7 @@ insert (SORT SITUATION) >1 y
 %------------------------------------
 % remove IML layer
 %------------------------------------
-/^IP-(CTL|SUB)/ <: IML=x
+/^IP-(CTL|SUB)/ <: (IML=x !< CONJP)
 
 excise x x
 
@@ -2207,7 +2383,7 @@ excise x x
 %------------------------------------
 % place IP-CTL after the SBJ of the containing clause if there is no other controller from the containing clause
 %------------------------------------
-define(`_controllers_all_following', `$.. (_pp($1) < (/^ROLE/ < /^ARG0/) !$,, (_pp < (/^ROLE/ < /^ARG/))) !$,, (_pp < (/^ROLE/ < /^ARG/))')dnl
+define(`_controllers_all_following', `$.. (_pp($1) < (/^ROLE/ < /^ARG0\b/) !$,, (_pp < (/^ROLE/ < /^ARG/))) !$,, (_pp < (/^ROLE/ < /^ARG/))')dnl
 
 /^IP-CTL/=x _controllers_all_following(y)
 
@@ -2224,37 +2400,37 @@ _pp(x) < (/^CP-THT/ < (/^IP-CTL/)) _controllers_all_following(y)
 move x $- y
 
 
+define(`_controllers0_all_following', `$.. (_pp($1) < (/^ROLE/ < /^ARG0\b/) !$,, (_pp < (/^ROLE/ < /^ARG0/))) !$,, (_pp < (/^ROLE/ < /^ARG0/))')dnl
+
+/^IP-CTL2/=x _controllers0_all_following(y)
+
+move x $- y
+
+
+_pp(x) < /^IP-CTL2/ _controllers0_all_following(y)
+
+move x $- y
+
+
+_pp(x) < (/^CP-THT/ < (/^IP-CTL2/)) _controllers0_all_following(y)
+
+move x $- y
+
+
 %------------------------------------
 % type clauses under conjunction
 %------------------------------------
-/^IP-(CTL2|CTL|SUB)\b/`#'1\%func [ < IML=x < _conjp | < (_conjp < IML=x) ]
+/^IP-(CTL|CTL2|SUB)\b/`#'1\%func [ < IML=x < _conjp | < (_conjp < IML=x) ]
 
 relabel x /^.*$/IP-\%{func}/
 
 
-%------------------------------------
-% use scope position
-%------------------------------------
-/^(.+)-scope$/`#'1\%tag=y < /^_STAR$/=z $ /^(.+)$/`#'1\%tag=x
-
-delete z
-move x >1 y
-excise y y
-
-
-/^(.+)-scope-(\p{Digit}+)$/`#'1\%tag`#'2\%index=y < /^_STAR$/=z $ /^(.+)-(\p{Digit}+)$/`#'1\%tag`#'2\%index=x
-
-delete z
-move x >1 y
-excise y y
-
-
-%------------------------------------
-% reorder *T[0-9]+*
-%------------------------------------
-/^PP/=x < (/^ROLE\b/ < /^_STAR(T[0-9]*)$/) $, (__=y !< (/^ROLE\b/ < /^_STAR(T[0-9]*)$/)) !$, (/^PP/ < (/^ROLE\b/ < /^[?.@]/))
-
-move x $+ y
+% %------------------------------------
+% % reorder *T[0-9]+*
+% %------------------------------------
+% /^PP/=x < (/^ROLE\b/ < /^_STAR(T[0-9]*)$/) $, (__=y !< (/^ROLE\b/ < /^_STAR(T[0-9]*)$/)) !$, (/^PP/ < (/^ROLE\b/ < /^[?.@]/))
+% 
+% move x $+ y
 
 
 %------------------------------------
@@ -2268,7 +2444,12 @@ delete a
 %------------------------------------
 % PRD SORT
 %------------------------------------
-NP=x > (_pp < (/^ROLE/ < PRD)) !< SORT !< CONJP
+NP=x > (_pp < (/^ROLE/ < PRD2)) !< SORT !< CONJP !< /^\*T/
+
+insert (SORT PRD2) >1 x
+
+
+NP=x > (_pp < (/^ROLE/ < PRD)) !< SORT !< CONJP !< /^\*T/
 
 insert (SORT PRD) >1 x
 
@@ -2304,7 +2485,7 @@ excise x x
 %------------------------------------
 % add conjunction with PP over IP-ADV that lacks P
 %------------------------------------
-_pp(x) < (ACT < /^scon/) !< /^(CONN|CONJP)\b/
+_pp(x) < (ACT < /^join/) !< /^(CONN|CONJP)\b/
 
 insert (CONN and) >1 x
 
@@ -2349,7 +2530,7 @@ delete x
 %------------------------------------
 % change sister of NPR
 %------------------------------------
-NPR $ (PP=x < (ACT < /^(scon|cond)/))
+NPR $ (PP=x !< (ROLE < /^__PRN__$/))
 
 adjoinF (PP (ROLE __PRN__) (NP @)) x
 
@@ -2357,20 +2538,33 @@ adjoinF (PP (ROLE __PRN__) (NP @)) x
 %------------------------------------
 % remove NEG
 %------------------------------------
-NEG=x <<, (__=y !< __)
+NEG=x <<, (__=y !< __) > _i
 
 insert (ACT exists) $- x
-relabel x REL
+relabel x PROP
 relabel y neg
 
 
 %------------------------------------
 % remove MD
 %------------------------------------
-MD=x <<, (__=y !< __)
+MD=x <<, (__=y !< __) > _i
 
 relabel y /^.*$/MD_={y}/
-relabel x REL
+relabel x PROP
+
+
+%------------------------------------
+% remaining MD|NEG
+%------------------------------------
+MD|NEG=x > /^(PP|CONJP)\b/
+
+relabel x CONN
+
+
+MD|NEG=x > /^ADXP\b/
+
+relabel x ADX
 
 
 %------------------------------------
@@ -2382,6 +2576,23 @@ adjoinF (PP (ROLE __LINK__) @) x
 
 
 %------------------------------------
+% save PP
+%------------------------------------
+/^PP\b/=x [ $ ID | > TOP ]
+
+adjoinF (IP-MAT @) x
+
+
+%------------------------------------
+% actions for PRD3
+%------------------------------------
+IP-CTL=x $ (ROLE < PRD3=y)
+
+relabel x IP-SUB
+relabel y PRD
+
+
+%------------------------------------
 %------------------------------------
 % final clean-up
 %------------------------------------
@@ -2390,7 +2601,7 @@ adjoinF (PP (ROLE __LINK__) @) x
 %------------------------------------
 % strip extra information
 %------------------------------------
-/^(ACT|ADX|ADXP|CONJP|CONN|CP-QUE|CP-REL|CP-THT|D|ID|IML|IP-CTL|IP-CTL2|IP-MAT-TOP|IP-SUB|N|NPR|NP-SUM|PRO|Q|REL|ROLE|SORT|VB|WH)\b./`#'1\%content=x < __
+/^(ACT|ADX|ADXP|CONJP|CONN|CP-QUE|CP-REL|CP-THT|D|ID|IML|IP-CTL|IP-CTL2|IP-MAT-TOP|IP-SUB|N|NPR|NP-SUM|PRO|PROP|Q|ROLE|SORT|VB|WH)\b./`#'1\%content=x < __
 
 relabel x /^.*$/\%{content}/
 
@@ -2401,9 +2612,14 @@ relabel x /^.*$/\%{content}/
 
 
 %------------------------------------
-% remove layers under part-of-speech
+% remove layers under word class tags
 %------------------------------------
-/^(ADX|CONN|D|N|NPR|PRO|ROLE|Q|REL|VB|WH)$/ < (__=x < __)
+/^(ADX|CONN|D|N|NPR|PRO|PROP|ROLE|Q|VB|WH)$/ << SORT|ACT|ROLE=x
+
+delete x
+
+
+/^(ADX|CONN|D|N|NPR|PRO|PROP|ROLE|Q|VB|WH)$/ < (__=x < __)
 
 excise x x
 
@@ -2420,7 +2636,7 @@ delete y
 %------------------------------------
 % remove items with unknown tags
 %------------------------------------
-!/^(ACT|ADX|ADXP|CONJP|CONN|CP-QUE|CP-REL|CP-THT|D|ID|IML|IP-CTL|IP-CTL2|IP-MAT|IP-MAT-TOP|IP-SUB|N|NP|NPR|NP-SUM|PP|PRO|Q|REL|ROLE|SORT|VB|WH|TOP)$/=x !== /^$/ < __
+!/^(ACT|ADX|ADXP|CONJP|CONN|CP-QUE|CP-REL|CP-THT|D|ID|IML|IP-CTL|IP-CTL2|IP-MAT|IP-MAT-TOP|IP-SUB|N|NP|NPR|NP-SUM|PP|PRO|PROP|Q|ROLE|SORT|VB|WH|TOP)$/=x !== /^$/ < __
 
 prune x
 
@@ -2428,7 +2644,7 @@ prune x
 %------------------------------------
 % avoid collisions with tag names
 %------------------------------------
-/^(ACT|ADX|ADXP|CONJP|CONN|CP-QUE|CP-REL|CP-THT|D|ID|IML|IP-CTL|IP-CTL2|IP-MAT|IP-MAT-TOP|IP-SUB|N|NP|NPR|NP-SUM|PP|PRO|Q|REL|ROLE|SORT|VB|WH|TOP)$/=x !< __
+/^(ACT|ADX|ADXP|CONJP|CONN|CP-QUE|CP-REL|CP-THT|D|ID|IML|IP-CTL|IP-CTL2|IP-MAT|IP-MAT-TOP|IP-SUB|N|NP|NPR|NP-SUM|PP|PRO|PROP|Q|ROLE|SORT|VB|WH|TOP)$/=x !< __
 
 relabel x /^(.*)$/$1_/
 
@@ -2436,8 +2652,20 @@ relabel x /^(.*)$/$1_/
 %------------------------------------
 % avoid collisions with ROLE information
 %------------------------------------
-/^(IP|NP)\b/=z << (
-  ROLE < (/^(.+)$/`#'1\%name=x !== /^(ARG|DARG)/)
+%%% /^(IP|NP)\b/=z << (
+%%%   ROLE < (/^(.+)$/`#'1\%name=x !== /^(ARG|DARG|__dot__|\.|__star__|\*|\?|@)/ !== /^__PRN__$/)
+%%%     !>> (/^(IP|NP)\b/ !< CONJP >> =z)
+%%%     !> (__ >> (/^ADXP\b/ !< CONJP >> =z))
+%%%     ,, (ROLE < /^(.+)$/`#'1\%name >> =z
+%%%          !>> (/^(IP|NP)\b/ !< CONJP >> =z)
+%%%          !> (__ >> (/^ADXP\b/ !< CONJP >> =z))
+%%%        )
+%%%   )
+%%% 
+%%% coindex x
+
+/^(IP|NP|ADXP)\b/=z << (
+  ROLE < (/^(.+)$/`#'1\%name=x !== /^(ARG|DARG|__dot__|\.|__star__|\*|\?|@)/ !== /^__PRN__$/)
     !>> (/^(IP|NP)\b/ !< CONJP >> =z)
     !> (__ >> (/^ADXP\b/ !< CONJP >> =z))
     ,, (ROLE < /^(.+)$/`#'1\%name >> =z
@@ -2449,8 +2677,16 @@ relabel x /^(.*)$/$1_/
 coindex x
 
 
+
 ROLE < /^(.+)-(\p{Digit}+)$/`#'1\%name`#'2\%index=x
 
 relabel x /^.*$/\%{name}:\%{index}/
 
+
+%------------------------------------
+% SORT information with NP-SUM
+%------------------------------------
+NP-SUM=y !< SORT $ SORT=x
+
+insert x >1 y
 

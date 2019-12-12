@@ -381,7 +381,7 @@ tags are changed into ‘NP’ tags which are placed under a ‘PP’ projection
 that contains ‘(ROLE ARG0)’ to retain the contribution of ‘-SBJ’. As a
 consequence, all arguments become ‘PP’ projections with role information,
 so, e.g., with ‘(PP (ROLE to) (NP (SORT CITY) (NPR Hirosaki)))’ there
-is no structural change, but the ‘P’ part-of-speech was changed to ‘ROLE’,
+is no structural change, but the ‘P’ tag was changed to ‘ROLE’,
 and a ‘SORT’ node was created to carry the ‘CITY’ information offset from
 the source ‘NP;{CITY}’ node.
 

@@ -111,15 +111,15 @@ relabel x /^.*$/\%{cat}P\%{rest}/
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% NP-POS
-/^NP\b(.*)$/`#'1\%rest=x !== /^NP-POS\b/ < POS > _NP
+% NP-GENV
+/^NP\b(.*)$/`#'1\%rest=x !== /^NP-GENV\b/ < GENM > _NP
 
-relabel x /^.*$/NP-POS\%{rest}/
+relabel x /^.*$/NP-GENV\%{rest}/
 
 
 /^(.+)\$$/`#'1\%cat=x < __
 
-adjoinF (NP-POS @) x
+adjoinF (NP-GENV @) x
 relabel x /^.*$/\%{cat}/
 
 
@@ -405,7 +405,7 @@ relabel x IP-PPL-OB1
 
 VP=x [ < _participle | < (IML < (IML < _participle)) ] > _clause $ __
 
-relabel x IP-PPL-PRD2
+relabel x IP-PPL-SEQ
 
 
 VP=x [ < _participle | < (IML < (IML < _participle)) ] $ __
@@ -457,7 +457,7 @@ relabel x IP-PPL-OB1
 
 /^\*-[0-9]$/ !< __ > (/^NP\b/ > (IP-MAT=x > (__ > __)))
 
-relabel x IP-PPL-PRD2
+relabel x IP-PPL-SEQ
 
 
 /^\*-[0-9]$/=y !< __ > (/^NP\b/=x !== /\bSBJ\b/ !$ /LGS/)
@@ -522,7 +522,7 @@ _clause=x !== /^IP-SUB/ > /^CP/ < __
 relabel x IP-SUB
 
 
-S=y <: /^IP-PPL-PRD2\b(.*)/`#'1\%rest=x > (__ > __)
+S=y <: /^IP-PPL-SEQ\b(.*)/`#'1\%rest=x > (__ > __)
 
 relabel x /^.*$/IP-PPL\%{rest}/
 excise y y
@@ -548,31 +548,9 @@ excise i i
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % IP-INF
-%%% IP-INF=x >: /^IP-(PPL|MAT)\b(.*)$/`#'2\%rest=y
-%%% 
-%%% relabel x /^.*$/IP-INF\%{rest}/
-%%% excise y y
-%%% 
-%%% 
-%%% IP-INF=x $ (/^(V|H)/ !== /^VP\b/) !$ /\bOB1\b/
-%%% 
-%%% relabel x IP-INF-OB1
-%%% 
-%%% 
-%%% /^IP-PPL-PRD2\b/=x >: /^IP-(PPL|MAT)\b(.*)$/`#'2\%rest=y
-%%% 
-%%% relabel x /^.*$/IP-PPL\%{rest}/
-%%% excise y y
-
-
 /^IP-PPL-NOM\b(.*)/`#'1\%rest=x > /^PP\b/
 
 relabel x /^.*$/IP-PPL\%{rest}/
-
-
-%%% /\bPRD\b/ >: /^IP-MAT-OB1/=x
-%%% 
-%%% excise x x
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -780,7 +758,7 @@ excise x x
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%
-% remove layers under part-of-speech
+% remove layers under word class tags
 /^(CONJ|P-ROLE)$/ < (__=x < __)
 
 excise x x
@@ -822,4 +800,70 @@ PU=x >-1 (__=y > (__ > __))
 
 move x $- y
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% P-CONN
+PP=x < P-CONN
+
+relabel x PP-SCON
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% apos
+/^(.*)'(.*)/`#'1\%start`#'2\%rest=x !< __ !> PUQ
+
+relabel x /^.*$/\%{start}<apos>\%{rest}/
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% ADVP and ADJP
+NML=x <1 ADV|WADV=a <2 ADJ|ADJS|ADJR=b !<3 __
+
+adjoinF (ADVP @) a
+relabel x ADJP
+
+
+ADJ|ADJS|ADJR=a > /^(NP|NML)\b/
+
+adjoinF (ADJP @) a
+
+
+ADV|ADVS|ADVR=a !> /^ADVP\b/
+
+adjoinF (ADVP @) a
+
+
+ADVP=x $. ADJP=y !> /^ADJP/
+
+move x >1 y
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% elements under ADXP
+Q=x > /^(ADJP|ADVP)/
+
+adjoinF (NP @) x
+
+
+PP-SCON=x > /^(ADJP|ADVP)/
+
+relabel x PP
+
+
+NP=y >: /^ADVP\b(.*)$/`#'1\%rest=x
+
+relabel x /^.*$/NP\%{rest}/
+excise y y
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% PRD2 with BE
+/^B/ [ $. (__=x !== /(PRD|SBJ)/ < (/^P-ROLE/ < __)) | $. (NEG  $. (__=x !== /(PRD|SBJ)/ < (/^P-ROLE/ < __))) ] !$ /(PRD|SEQ|EX)/
+
+relabel x /^.*$/={x}-PRD2/
+
+
+/^(.*)\bPRD\b(.*)$/`#'1\%start`#'2\%rest=x !$ /OB/ !$ /LGS/ !> FRAG == /^NP\b/ < __
+
+relabel x /^.*$/\%{start}PRD2\%{rest}/
 

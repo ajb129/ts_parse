@@ -8,14 +8,14 @@ function help_information () {
 
 cat 1>&2 << END
 NAME
-      penn_to_ts_tags - change pos tags
+      penn_to_ts_tags - change word class tags
 
 SYNOPSIS
       penn_to_ts_tags
 
 DESCRIPTION
       Reads syntactic parse following Penn Treebank scheme from stdin,
-      returns syntactic parse with the part-of-speech tags changed to
+      returns syntactic parse with the word class tags changed to
       follow the TSPC annotation scheme. Nodes of higher constituents
       are left unchanged.
 
@@ -47,153 +47,161 @@ tree_to_table | sed "s/''/’’/" | gawk '
 
 BEGIN {
 
-  have_pos["VB"]  = "HV"  # 	verb have, base form 	have
-  have_pos["VBD"] = "HVD" # 	verb have, past tense 	had
-  have_pos["VBG"] = "HAG" # 	verb have, gerund/present participle 	having
-  have_pos["VBN"] = "HVN" # 	verb have, past participle 	had
-  have_pos["VBP"] = "HVP" # 	verb have, sing. present, non-3d 	have
-  have_pos["VBZ"] = "HVP" # 	verb have, 3rd person sing. present 	has
+  have_tag["VB"]  = "HV"  # 	verb have, base form 	have
+  have_tag["VBD"] = "HVD" # 	verb have, past tense 	had
+  have_tag["VBG"] = "HAG" # 	verb have, gerund/present participle 	having
+  have_tag["VBN"] = "HVN" # 	verb have, past participle 	had
+  have_tag["VBP"] = "HVP" # 	verb have, sing. present, non-3d 	have
+  have_tag["VBZ"] = "HVP" # 	verb have, 3rd person sing. present 	has
 
-  be_pos["VB"]  = "BE"  # 	verb be, base form 	be
-  be_pos["VBD"] = "BED" # 	verb be, past tense 	was, were
-  be_pos["VBG"] = "BAG" # 	verb be, gerund/present participle 	being
-  be_pos["VBN"] = "BEN" # 	verb be, past participle 	been
-  be_pos["VBP"] = "BEP" # 	verb be, sing. present, non-3d 	am, are
-  be_pos["VBZ"] = "BEP" # 	verb be, 3rd person sing. present 	is
+  be_tag["VB"]  = "BE"  # 	verb be, base form 	be
+  be_tag["VBD"] = "BED" # 	verb be, past tense 	was, were
+  be_tag["VBG"] = "BAG" # 	verb be, gerund/present participle 	being
+  be_tag["VBN"] = "BEN" # 	verb be, past participle 	been
+  be_tag["VBP"] = "BEP" # 	verb be, sing. present, non-3d 	am, are
+  be_tag["VBZ"] = "BEP" # 	verb be, 3rd person sing. present 	is
 
-  do_pos["VB"]  = "DO"  # 	verb do, base form 	do
-  do_pos["VBD"] = "DOD" # 	verb do, past tense 	did
-  do_pos["VBG"] = "DAG" # 	verb do, gerund/present participle 	doing
-  do_pos["VBN"] = "DON" # 	verb do, past participle 	done
-  do_pos["VBP"] = "DOP" # 	verb do, sing. present, non-3d 	do
-  do_pos["VBZ"] = "DOP" # 	verb do, 3rd person sing. present 	does
+  do_tag["VB"]  = "DO"  # 	verb do, base form 	do
+  do_tag["VBD"] = "DOD" # 	verb do, past tense 	did
+  do_tag["VBG"] = "DAG" # 	verb do, gerund/present participle 	doing
+  do_tag["VBN"] = "DON" # 	verb do, past participle 	done
+  do_tag["VBP"] = "DOP" # 	verb do, sing. present, non-3d 	do
+  do_tag["VBZ"] = "DOP" # 	verb do, 3rd person sing. present 	does
 
-  pos["VB"]   = "VB"  # 	verb, base form 	take
-  pos["VBD"]  = "VBD" # 	verb, past tense 	took
-  pos["VBG"]  = "VAG" # 	verb, gerund/present participle 	taking
-  pos["VBN"]  = "VVN" # 	verb, past participle 	taken
-  pos["VBP"]  = "VBP" # 	verb, sing. present, non-3d 	take
-  pos["VBZ"]  = "VBP" # 	verb, 3rd person sing. present 	takes
+  tag["VB"]   = "VB"  # 	verb, base form 	take
+  tag["VBD"]  = "VBD" # 	verb, past tense 	took
+  tag["VBG"]  = "VAG" # 	verb, gerund/present participle 	taking
+  tag["VBN"]  = "VVN" # 	verb, past participle 	taken
+  tag["VBP"]  = "VBP" # 	verb, sing. present, non-3d 	take
+  tag["VBZ"]  = "VBP" # 	verb, 3rd person sing. present 	takes
 
-  pos["CC"]    = "CONJ"   # 	coordinating conjunction 	and
-  pos["CD"]    = "NUM"    # 	cardinal number 	1, third
-  pos["DT"]    = "D"      # 	determiner 	the
-  pos["EX"]    = "EX"     # 	existential there 	there is
-  pos["FW"]    = "FW"     # 	foreign word 	les
-  pos["IN"]    = "P-ROLE" # 	preposition, of, like
-  pos["JJ"]    = "ADJ"    # 	adjective 	green
-  pos["JJR"]   = "ADJR"   # 	adjective, comparative 	greener
-  pos["JJS"]   = "ADJS"   # 	adjective, superlative 	greenest
-  pos["LS"]    = "LS"     # 	list marker 	1)
-  pos["MD"]    = "MD"     # 	modal 	could, will
-  pos["NN"]    = "N"      # 	noun, singular or mass 	table
-  pos["NNS"]   = "NS"     # 	noun plural 	tables
-  pos["NNP"]   = "NPR"    # 	proper noun, singular 	John
-  pos["NNPS"]  = "NPRS"   # 	proper noun, plural 	Vikings
-  pos["PDT"]   = "Q"      # 	predeterminer 	both the boys
-  pos["POS"]   = "POS"    # 	possessive ending 	friend’s
-  pos["PRP"]   = "PRO"    # 	personal pronoun 	I, he, it
-  pos["PRP$"]  = "PRO$"   # 	possessive pronoun 	my, his
-  pos["RB"]    = "ADV"    # 	adverb 	however, usually, naturally, here, good
-  pos["RBR"]   = "ADVR"   # 	adverb, comparative 	better
-  pos["RBS"]   = "ADVS"   # 	adverb, superlative 	best
-  pos["RP"]    = "RP"     # 	particle 	give up
-  pos["SYM"]   = "SYM"    # 	Symbol 	/ [ = *
-  pos["TO"]    = "TO"     # 	infinitive ‘to’ 	togo
-  pos["UH"]    = "INTJ"   # 	interjection 	uhhuhhuhh
-  pos["WDT"]   = "WD"     # 	wh-determiner 	which
-  pos["WP"]    = "WPRO"   # 	wh-pronoun 	who, what
-  pos["WP$"]   = "WPRO$"  # 	possessive wh-pronoun 	whose
-  pos["WRB"]   = "WADV"   # 	wh-abverb 	where, when
-  pos["#"]     = "N"      # 	# 	#
-  pos["$"]     = "N"      # 	$ 	$
-  pos["“"]     = "PUQ"    # 	Quotation marks 	‘ “
-  pos["``"]    = "PUQ"    # 	Quotation marks 	‘ “
-  pos["’’"]    = "PUQ"    # 	Quotation marks 	‘ “
-  pos["("]     = "PUL"    # 	Opening brackets 	( {
-  pos["-LRB-"] = "PUL"    # 	Opening brackets 	( {
-  pos[")"]     = "PUR"    # 	Closing brackets 	) }
-  pos["-RRB-"] = "PUR"    # 	Closing brackets 	) }
-  pos[","]     = "PU"     # 	Comma 	,
-  pos[":"]     = "PU"     # 	Punctuation 	– ; : — …
-  pos["."]     = "PU"     # 	Sentence-break punctuation 	. ! ?
+  tag["CC"]    = "CONJ"   # 	coordinating conjunction 	and
+  tag["CD"]    = "NUM"    # 	cardinal number 	1, third
+  tag["DT"]    = "D"      # 	determiner 	the
+  tag["EX"]    = "EX"     # 	existential there 	there is
+  tag["FW"]    = "FW"     # 	foreign word 	les
+  tag["IN"]    = "P-ROLE" # 	pretagition, of, like
+  tag["JJ"]    = "ADJ"    # 	adjective 	green
+  tag["JJR"]   = "ADJR"   # 	adjective, comparative 	greener
+  tag["JJS"]   = "ADJS"   # 	adjective, superlative 	greenest
+  tag["LS"]    = "LS"     # 	list marker 	1)
+  tag["MD"]    = "MD"     # 	modal 	could, will
+  tag["NN"]    = "N"      # 	noun, singular or mass 	table
+  tag["NNS"]   = "NS"     # 	noun plural 	tables
+  tag["NNP"]   = "NPR"    # 	proper noun, singular 	John
+  tag["NNPS"]  = "NPRS"   # 	proper noun, plural 	Vikings
+  tag["PDT"]   = "Q"      # 	predeterminer 	both the boys
+  tag["POS"]   = "GENM"    # 	tagsessive ending 	friend’s
+  tag["PRP"]   = "PRO"    # 	personal pronoun 	I, he, it
+  tag["PRP$"]  = "PRO$"   # 	tagsessive pronoun 	my, his
+  tag["RB"]    = "ADV"    # 	adverb 	however, usually, naturally, here, good
+  tag["RBR"]   = "ADVR"   # 	adverb, comparative 	better
+  tag["RBS"]   = "ADVS"   # 	adverb, superlative 	best
+  tag["RP"]    = "RP"     # 	particle 	give up
+  tag["SYM"]   = "SYM"    # 	Symbol 	/ [ = *
+  tag["TO"]    = "TO"     # 	infinitive ‘to’ 	togo
+  tag["UH"]    = "INTJ"   # 	interjection 	uhhuhhuhh
+  tag["WDT"]   = "WD"     # 	wh-determiner 	which
+  tag["WP"]    = "WPRO"   # 	wh-pronoun 	who, what
+  tag["WP$"]   = "WPRO$"  # 	tagsessive wh-pronoun 	whose
+  tag["WRB"]   = "WADV"   # 	wh-abverb 	where, when
+  tag["#"]     = "N"      # 	# 	#
+  tag["$"]     = "N"      # 	$ 	$
+  tag["“"]     = "PUQ"    # 	Quotation marks 	‘ “
+  tag["``"]    = "PUQ"    # 	Quotation marks 	‘ “
+  tag["’’"]    = "PUQ"    # 	Quotation marks 	‘ “
+  tag["("]     = "PUL"    # 	Opening brackets 	( {
+  tag["-LRB-"] = "PUL"    # 	Opening brackets 	( {
+  tag[")"]     = "PUR"    # 	Closing brackets 	) }
+  tag["-RRB-"] = "PUR"    # 	Closing brackets 	) }
+  tag[","]     = "PU"     # 	Comma 	,
+  tag[":"]     = "PU"     # 	Punctuation 	– ; : — …
+  tag["."]     = "PU"     # 	Sentence-break punctuation 	. ! ?
 
-  pos["HYPH"]  = "PU"     # 	Sentence-break punctuation 	. ! ?
+  tag["HYPH"]  = "PU"     # 	Sentence-break punctuation 	. ! ?
 
-  pos["NP-LGS"] = "NP-LGS"
+  tag["NP-LGS"] = "NP-LGS"
 
-  pos["ID"]    = "ID"
+  tag["ID"]    = "ID"
 }
 
-tolower($NF) ~ /^(have|had|having|has)$/ && $2 ~ /^V/ {
-  POS = gensub(/[@%]/, "", 1, $2)
-  if (have_pos[POS]) {
-    printf("%s %s %s %s\n", $1, have_pos[POS], $3, $NF)
+tolower($NF) ~ /^(have|had|having|has)\>/ && $2 ~ /^V/ {
+  TAG = gensub(/[@%]/, "", 1, $2)
+  if (have_tag[TAG]) {
+    printf("%s %s %s %s\n", $1, have_tag[TAG], $3, $NF)
   }
   else {
-    printf("%s original[%s] %s %s\n", $1, POS, $3, $NF)
-  }
-  NOUN=0
-  next
-}
-tolower($NF) ~ /^(be|was|were|being|been|am|are|is)$/ && $2 ~ /^V/ {
-  POS = gensub(/[@%]/, "", 1, $2)
-  if (have_pos[POS]) {
-    printf("%s %s %s %s\n", $1, be_pos[POS], $3, $NF)
-  }
-  else {
-    printf("%s original[%s] %s %s\n", $1, POS, $3, $NF)
-  }
-  NOUN=0
-  next
-}
-tolower($NF) ~ /^(do|did|doing|done|does)$/ && $2 ~ /^V/ {
-  POS = gensub(/[@%]/, "", 1, $2)
-  if (have_pos[POS]) {
-    printf("%s %s %s %s\n", $1, do_pos[POS], $3, $NF)
-  }
-  else {
-    printf("%s original[%s] %s %s\n", $1, POS, $3, $NF)
+    printf("%s original[%s] %s %s\n", $1, TAG, $3, $NF)
   }
   NOUN=0
   next
 }
 
-tolower($NF) ~ /^(each|every|no)(body|one|thing)$/ && $2 == "NN" {
-  printf("%s QN %s %s\n", $1, $3, $NF)
+tolower($NF) ~ /^(be|was|were|being|been|am|are|is)\>/ && $2 ~ /^V/ {
+  TAG = gensub(/[@%]/, "", 1, $2)
+  if (have_tag[TAG]) {
+    printf("%s %s %s %s\n", $1, be_tag[TAG], $3, $NF)
+  }
+  else {
+    printf("%s original[%s] %s %s\n", $1, TAG, $3, $NF)
+  }
+  NOUN=0
+  next
+}
+
+tolower($NF) ~ /^(do|did|doing|done|does)\>/ && $2 ~ /^V/ {
+  TAG = gensub(/[@%]/, "", 1, $2)
+  if (have_tag[TAG]) {
+    printf("%s %s %s %s\n", $1, do_tag[TAG], $3, $NF)
+  }
+  else {
+    printf("%s original[%s] %s %s\n", $1, TAG, $3, $NF)
+  }
+  NOUN=0
+  next
+}
+
+tolower($NF) ~ /^(each|every|no)(body|one|thing)\>/ && $2 == "NN" {
+  printf("%s Q %s %s\n", $1, $3, $NF)
   NOUN=1
   next
 }
 
-tolower($NF) ~ /(self|selves)$/ && $2 == "PRP" {
+tolower($NF) ~ /^(any|some)(body|one|thing)\>/ && $2 == "NN" {
+  printf("%s D %s %s\n", $1, $3, $NF)
+  NOUN=1
+  next
+}
+
+tolower($NF) ~ /(self|selves)\>/ && $2 == "PRP" {
   printf("%s PNX %s %s\n", $1, $3, $NF)
   NOUN=1
   next
 }
 
 # subordinating conjunction
-tolower($NF) ~ /^(although|albeit|because|before|cause|if|lest|provided|providing|supposing|since|so|than|though|til|unless|until|when|whereas|while|whilst)$/ && $2 == "IN" {
+tolower($NF) ~ /^(although|albeit|because|before|cause|if|lest|provided|providing|suptaging|since|so|than|though|til|unless|until|when|whereas|while|whilst)\>/ && $2 == "IN" {
   printf("%s P-CONN %s %s\n", $1, $3, $NF)
   NOUN=0
   next
 }
 
 # quantifiers
-tolower($NF) ~ /^(all|each|every|many|no|none)$/ && $2 == "DT" {
+tolower($NF) ~ /^(all|each|every|many|no|none)\>/ && $2 == "DT" {
   printf("%s Q %s %s\n", $1, $3, $NF)
   NOUN=0
   next
 }
 
 NF > 3 {
-  POS = gensub(/[@%]/, "", 1, $2)
-  if (pos[POS]) {
-    printf("%s %s %s %s\n", $1, pos[POS], $3, $NF)
+  TAG = gensub(/[@%]/, "", 1, $2)
+  if (tag[TAG]) {
+    printf("%s %s %s %s\n", $1, tag[TAG], $3, $NF)
   } else {
-    printf("%s original[%s] %s %s\n", $1, POS, $3, $NF)
+    printf("%s original[%s] %s %s\n", $1, TAG, $3, $NF)
   }
-  if (pos[POS] ~ /^N|NS$/) { NOUN=1 } else { NOUN=0 }
-  POS = ""
+  if (tag[TAG] ~ /^N|NS$/) { NOUN=1 } else { NOUN=0 }
+  TAG = ""
   next
 }
 

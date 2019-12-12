@@ -31,7 +31,7 @@ relabel x /^.*$/\%{content}/
 relabel y /^.*$/={y}-\%{extra}/
 
 
-/^(NP|WHNP)-(.+)$/#1\%content#2\%extra=x > /^(NP|WHNP|PP|WHPP)\b$/=y !< POS
+/^(NP|WHNP)-(.+)$/#1\%content#2\%extra=x > /^(NP|WHNP|PP|WHPP)\b$/=y !< POS|GENM
 
 relabel x /^.*$/\%{content}/
 relabel y /^.*$/={y}-\%{extra}/
@@ -142,7 +142,7 @@ relabel x /^.*$/\%{content}/
 relabel y /^.*$/={y};\%{extra}/
 
 
-/^(NP|WHNP.*)(;\{.+\})$/#1\%content#2\%extra=x > (/^(NP|WHNP)\b/=y !== /;\{/) !< POS
+/^(NP|WHNP.*)(;\{.+\})$/#1\%content#2\%extra=x > (/^(NP|WHNP)\b/=y !== /;\{/) !< POS|GENM
 
 relabel x /^.*$/\%{content}/
 relabel y /^.*$/={y}\%{extra}/

@@ -1,7 +1,8 @@
 #!/bin/bash
 
-ADDRESS="corenlp.run"
 PORT="9000"
+ADDRESS="corenlp.run"
+# ADDRESS="localhost:${PORT}"
 
 # wget --post-data 'The quick brown fox jumped over the lazy dog.' 'http://corenlp.run/?properties={"annotators":"parse,ner","outputFormat":"xml"}' -O -
 

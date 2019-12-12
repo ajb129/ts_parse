@@ -59,7 +59,7 @@ TSCRIPT=${TMP:-"/tmp"}/output$$.tsurgeon
 
 ##################
 # take already created parse
-awk '{ print ; print "(TOP (IP-MAT (VB @split@)))" }' > "${TEMP}"
+cat > "${TEMP}"
 
 ##################
 # determine language
@@ -101,8 +101,7 @@ remove_all != 0	{ next }
 ##################
 # run the tsurgeon script
 
-java -mx300m -cp "${TREGEX_LOCATION}" edu.stanford.nlp.trees.tregex.tsurgeon.Tsurgeon -treeFile "${TEMP}" "${TSCRIPT}" -s | \
-awk '/@split@/ { printf("\n") ; next } ; { printf("%s", $0) }'
+java -mx300m -cp "${TREGEX_LOCATION}" edu.stanford.nlp.trees.tregex.tsurgeon.Tsurgeon -treeFile "${TEMP}" "${TSCRIPT}" -s
 
 ##################
 # clean up

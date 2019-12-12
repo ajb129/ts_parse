@@ -170,7 +170,7 @@ adjoin (CP-REL (IP-SUB@)) x
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 /^acl/=x < (mark=y << (__=z !< __))
 
-adjoinF (PP (ACT scon) @) x
+adjoinF (PP (ACT join) @) x
 relabel z /^.*$/={x}:={z}/
 move y $+ x
 relabel x IP-CTL2
@@ -179,7 +179,7 @@ excise y y
 
 /^acl/=x < __
 
-adjoin (PP (CONN =y) (ACT scon) IP-CTL2@) x
+adjoin (PP (CONN =y) (ACT join) IP-CTL2@) x
 relabel y /^.*$/={x}/
 
 
@@ -194,7 +194,7 @@ excise y y
 
 /^advcl/=x < (mark=y << (__=z !< __))
 
-adjoinF (PP (ACT scon) @) x
+adjoinF (PP (ACT join) @) x
 relabel z /^.*$/={x}:={z}/
 move y $+ x
 relabel x IP-CTL2
@@ -223,7 +223,7 @@ adjoin (PP (SORT SITUATION) (ROLE COMP) (IP-CTL2@)) x
 
 xcomp=x <1 mark=y
 
-adjoinF (PP (ACT scon) @) x
+adjoinF (PP (ACT join) @) x
 move y $+ x
 relabel x IP-CTL2
 relabel y CONN
@@ -231,7 +231,7 @@ relabel y CONN
 
 xcomp=x
 
-adjoin (PP (ACT scon) (CONN COMP) (IP-CTL2@)) x
+adjoin (PP (ACT join) (CONN COMP) (IP-CTL2@)) x
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -289,13 +289,13 @@ relabel x CONN
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 /^conj/=x > /^IP\b/
 
-adjoin (PP (ACT scon) (IP-CTL2@)) x
+adjoin (PP (ACT join) (IP-CTL2@)) x
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 /^parataxis/=x > /^IP\b/
 
-adjoin (PP (ACT scon) (CONN =y) (IP-CTL2@)) x
+adjoin (PP (ACT join) (CONN =y) (IP-CTL2@)) x
 relabel y /^.*$/={x}/
 
 
@@ -340,7 +340,7 @@ relabel x N
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % fix P
-/^PP\b/ < /^(P|TO)\b/=x < (ACT < /^(scon|cond)/)
+/^PP\b/ < /^(P|TO)\b/=x < (ACT < /^(join|cond)/)
 
 relabel x CONN
 
@@ -358,7 +358,7 @@ relabel x IP-SUB
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-PP < (CONN=x < COMP=z) < (ACT=y < scon)
+PP < (CONN=x < COMP=z) < (ACT=y < join)
 
 relabel x ROLE
 delete y
@@ -380,7 +380,7 @@ relabel y neg
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% remove layers under part-of-speech
+% remove layers under word class tags
 /^(ACT|ADX|CONN|D|MD|N|NPR|PNX|PRO|ROLE|Q|VB|WH)\b/ < (__=x < __)
 
 excise x x
